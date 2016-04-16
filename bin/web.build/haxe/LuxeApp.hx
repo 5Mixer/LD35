@@ -40,7 +40,7 @@ class LuxeApp {
             _conf.window.fullscreen = false;
             _conf.window.resizable = true;
             _conf.window.borderless = false;
-            _conf.window.title = '▩ ▩ Shape Snap ▩ ▩';
+            _conf.window.title = '◯ Shape Snap ◯';
 
             //Create the app class, give it to the bootstrapper
         _game = new Main();

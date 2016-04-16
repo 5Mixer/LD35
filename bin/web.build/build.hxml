@@ -1,4 +1,5 @@
 -main LuxeApp
+-js bin\web\luxe_empty.js
 -D no-compilation
 -D web
 -D arch-web
@@ -7,8 +8,8 @@
 -D snow_no_main
 -D luxe_web
 -D snow_web
--D luxe
 -D gesluxe
+-D luxe
 -D snow
 -D linc_openal
 -D linc_timestamp
@@ -16,16 +17,22 @@
 -D linc_ogg
 -D linc_sdl
 -D linc_opengl
+-cp bin/web.build/haxe
 -cp C:/HaxeToolkit/haxe/lib/luxe/git/
--cp C:/HaxeToolkit/haxe/lib/gesluxe/git/
--cp C:/HaxeToolkit/haxe/lib/snow/git/
--cp C:/HaxeToolkit/haxe/lib/linc_openal/git/
--cp C:/HaxeToolkit/haxe/lib/linc_timestamp/git/
--cp C:/HaxeToolkit/haxe/lib/linc_stb/git/
--cp C:/HaxeToolkit/haxe/lib/linc_ogg/git/
--cp C:/HaxeToolkit/haxe/lib/linc_sdl/git/
--cp C:/HaxeToolkit/haxe/lib/linc_opengl/git/
 -cp src/
+-lib linc_opengl
+-lib linc_sdl
+-lib linc_ogg
+-lib linc_stb
+-lib linc_timestamp
+-lib linc_openal
+-lib snow
+-lib luxe
+-lib gesluxe
+--macro snow.Set.assets("snow.core.web.assets.Assets")
+--macro snow.Set.audio("snow.modules.webaudio.Audio")
+--macro snow.Set.runtime("snow.core.web.Runtime")
+--macro snow.Set.io("snow.core.web.io.IO")
 -resource version@version
 -resource phoenix/defaults/shaders/vert.glsl@default.vert.glsl
 -resource phoenix/defaults/shaders/frag.glsl@default.frag.glsl
@@ -37,10 +44,4 @@
 -resource phoenix/defaults/shaders/frag.bitmapfont.gl3.glsl@default.frag.bitmapfont.gl3.glsl
 -resource luxe/defaults/fonts/default.png@default.png
 -resource luxe/defaults/fonts/default.fnt@default.fnt
---macro snow.Set.assets("snow.core.web.assets.Assets")
---macro snow.Set.audio("snow.modules.webaudio.Audio")
---macro snow.Set.runtime("snow.core.web.Runtime")
---macro snow.Set.io("snow.core.web.io.IO")
--cp bin/web.build/haxe
--js bin\web\luxe_empty.js
 bin\web.build\snow.hxml

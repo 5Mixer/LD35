@@ -4,7 +4,7 @@
     window: {
       width:960,
       height:640,
-      title:'▩ ▩ Shape Snap ▩ ▩',
+      title:'◯ Shape Snap ◯',
       fullscreen:false,
       resizable:true,
       borderless:false
@@ -23,8 +23,8 @@
 
     build : {
       dependencies : {
-        luxe : '*',
-        gesluxe : '*'
+        gesluxe : '*',
+        luxe : '*'
       }
     },
 
