@@ -1,0 +1,6 @@
+--macro snow.Set.main("luxe.Core")
+--macro snow.Set.ident("com.mixer.shapesnap")
+
+--macro snow.Set.config("config.json")
+
+
