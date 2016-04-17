@@ -56,67 +56,55 @@ class Board extends luxe.Entity {
 	}
 
 	function shiftRow(row:Int,right){
-		var newTiles = tiles;
 
 		var offset = (right) ? 1 : -1;
 
-		debugTiles(newTiles);
 		for (x in 0...tilesWide){
-			//getTile(x,row,true).color = new luxe.Color(255,100,100);
-			getTile(x,row,true).setPos(x+offset,row,true);
-			newTiles[getTileFromTiles(x,row,true)] = getTile(x+offset,row,true);
+			getTile(x,row,true,true).setPos(x+offset,row,true);
 		}
 
-		debugTiles(newTiles);
-		tiles = newTiles;
-
+		for (x in 0...tilesWide){
+			getTile(x,row,true,false).showPos();
+		}
 	}
 
-	public function getTileFromTiles (x,y,wrap=false){
-		if (wrap) x %= tilesWide;
-		if (wrap) y %= tilesHigh;
-		if (x<0) x = x+5;
-		if (y<0) y = y+5;
-
-		return y * tilesWide + x;
-	}
 
 	function shiftColumn (col:Int,down){
-		var newTiles = tiles;
 
 		var offset = (down) ? 1 : -1;
 
 		for (y in 0...tilesHigh){
-			//getTile(col,y,true).color = new luxe.Color(255,100,100);
-			getTile(col,y,true).setPos(col,y+offset,true);
-			trace(getTileFromTiles(col,y,true));
-			newTiles[getTileFromTiles(col,y,true)] = getTile(col,y+offset,true);
-
+			getTile(col,y,true,true).setPos(col,y+offset,true);
 		}
 
-		tiles = newTiles;
-
-
-		debugTiles(tiles);
+		for (y in 0...tilesHigh){
+			getTile(col,y,true,false).showPos();
+		}
 	}
 
 	function debugTiles(tiles:Array<Tile>){
-		Sys.println("");
+		/*Sys.println("");
 		for (y in 0...tilesWide){
 			for (x in 0...tilesHigh){
 				Sys.print(tiles[(y*5)+x].sym + " ");
 			}
 			Sys.println("");
 		}
-		Sys.println("");
+		Sys.println("");*/
 	}
 
-	public function getTile (x,y,wrap=true){
+	public function getTile (x,y,wrap=true,withAGoodPos=true):Tile{
 		if (wrap) x %= tilesWide;
 		if (wrap) y %= tilesHigh;
-		if (x<0) x = -x;
-		if (y<0) y = -y;
+		if (x<0) x = tilesWide;
+		if (y<0) y = tilesHigh;
 
-		return tiles[y * tilesWide + x];
+		for (t in tiles){
+			if (t.x == x && t.y == y && t.goodpos == withAGoodPos){
+				return t;
+			}
+		}
+		throw('No tile was found for $x : $y');
+		return null;
 	}
 }

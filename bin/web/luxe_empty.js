@@ -944,6 +944,7 @@ var Board = function() {
 			this.tiles[y * this.tilesWide + x] = tile;
 		}
 	}
+	this.debugTiles(this.tiles);
 	var swipe = new org_gesluxe_gestures_SwipeGesture();
 	swipe.events.listen("gesture.recognized",$bind(this,this.onGesture));
 	luxe_Entity.call(this,{ name : "Board"});
@@ -960,48 +961,64 @@ Board.prototype = $extend(luxe_Entity.prototype,{
 		var y;
 		if((js_Boot.__cast(event.gesture , org_gesluxe_gestures_SwipeGesture)).get_offsetY() > 0) y = true; else y = false;
 		if((js_Boot.__cast(event.gesture , org_gesluxe_gestures_SwipeGesture)).get_offsetX() == 0) {
-			haxe_Log.trace("Swipe up/down! Column: " + (col + 1) + ", down:" + (y == null?"null":"" + y),{ fileName : "Board.hx", lineNumber : 48, className : "Board", methodName : "onGesture"});
+			haxe_Log.trace("Swipe up/down! Column: " + (col + 1) + ", down:" + (y == null?"null":"" + y),{ fileName : "Board.hx", lineNumber : 50, className : "Board", methodName : "onGesture"});
 			this.shiftColumn(col,y);
 		} else if((js_Boot.__cast(event.gesture , org_gesluxe_gestures_SwipeGesture)).get_offsetY() == 0) {
-			haxe_Log.trace("Swipe L/R! Row: " + (row + 1) + ", right:" + (x == null?"null":"" + x),{ fileName : "Board.hx", lineNumber : 51, className : "Board", methodName : "onGesture"});
+			haxe_Log.trace("Swipe L/R! Row: " + (row + 1) + ", right:" + (x == null?"null":"" + x),{ fileName : "Board.hx", lineNumber : 53, className : "Board", methodName : "onGesture"});
 			this.shiftRow(row,x);
 		}
 	}
 	,shiftRow: function(row,right) {
-		var newTiles = this.tiles;
 		var offset;
 		if(right) offset = 1; else offset = -1;
 		var _g1 = 0;
 		var _g = this.tilesWide;
 		while(_g1 < _g) {
 			var x = _g1++;
-			this.getTile(x,row,true).set_color(new phoenix_Color(255,100,100));
-			this.getTile(x,row,true).setPos(x + offset,row,true);
-			newTiles[row * this.tilesWide + x + offset] = this.getTile(x,row,true);
+			this.getTile(x,row,true,true).setPos(x + offset,row,true);
 		}
-		this.tiles = newTiles;
+		var _g11 = 0;
+		var _g2 = this.tilesWide;
+		while(_g11 < _g2) {
+			var x1 = _g11++;
+			this.getTile(x1,row,true,false).showPos();
+		}
 	}
 	,shiftColumn: function(col,down) {
-		var newTiles = this.tiles;
 		var offset;
 		if(down) offset = 1; else offset = -1;
 		var _g1 = 0;
 		var _g = this.tilesHigh;
 		while(_g1 < _g) {
 			var y = _g1++;
-			this.getTile(col,y,true).set_color(new phoenix_Color(255,100,100));
-			this.getTile(col,y,true).setPos(col,y + offset,true);
-			newTiles[y + offset * this.tilesWide + col] = this.getTile(col,y + offset,true);
+			this.getTile(col,y,true,true).setPos(col,y + offset,true);
 		}
-		this.tiles = newTiles;
+		var _g11 = 0;
+		var _g2 = this.tilesHigh;
+		while(_g11 < _g2) {
+			var y1 = _g11++;
+			this.getTile(col,y1,true,false).showPos();
+		}
+		this.debugTiles(this.tiles);
 	}
-	,getTile: function(x,y,wrap) {
-		if(wrap == null) wrap = false;
+	,debugTiles: function(tiles) {
+	}
+	,getTile: function(x,y,wrap,withAGoodPos) {
+		if(withAGoodPos == null) withAGoodPos = true;
+		if(wrap == null) wrap = true;
 		if(wrap) x %= this.tilesWide;
 		if(wrap) y %= this.tilesHigh;
-		if(x < 0) x = -x;
-		if(y < 0) y = -y;
-		return this.tiles[y * this.tilesWide + x];
+		if(x < 0) x = this.tilesWide;
+		if(y < 0) y = this.tilesHigh;
+		var _g = 0;
+		var _g1 = this.tiles;
+		while(_g < _g1.length) {
+			var t = _g1[_g];
+			++_g;
+			if(t.x == x && t.y == y && t.goodpos == withAGoodPos) return t;
+		}
+		throw new js__$Boot_HaxeError("No tile was found for " + x + " : " + y);
+		return null;
 	}
 	,init: function() {
 		luxe_Entity.prototype.init.call(this);
@@ -1360,12 +1377,17 @@ Main.__name__ = ["Main"];
 Main.__super__ = luxe_Game;
 Main.prototype = $extend(luxe_Game.prototype,{
 	config: function(config) {
-		config.preload.textures.push({ id : "assets/Triangle.png"});
-		config.preload.textures.push({ id : "assets/Square.png"});
 		return config;
 	}
 	,ready: function() {
 		org_gesluxe_Gesluxe.init();
+		var parcel = new luxe_Parcel({ textures : [{ id : "assets/Triangle.png"},{ id : "assets/Square.png"}], sounds : [{ id : "assets/ShapeShiftTheme.wav", is_stream : false}]});
+		new luxe_ParcelProgress({ parcel : parcel, background : new phoenix_Color(0.5,0.89,0.31,0.75), oncomplete : $bind(this,this.assets_loaded)});
+		parcel.load();
+	}
+	,assets_loaded: function(_) {
+		this.music = Luxe.resources.cache.get("assets/ShapeShiftTheme.wav");
+		this.musicHandle = Luxe.audio.loop(this.music.source);
 		new Board();
 	}
 	,onkeyup: function(e) {
@@ -1680,7 +1702,15 @@ luxe_Sprite.prototype = $extend(luxe_Visual.prototype,{
 	,__properties__: $extend(luxe_Visual.prototype.__properties__,{set_uv:"set_uv",set_flipy:"set_flipy",set_flipx:"set_flipx",set_centered:"set_centered"})
 });
 var Tile = function(x,y,sprite) {
+	this.goodpos = true;
+	this.newy = -100;
+	this.newx = -100;
+	this.y = -100;
+	this.x = -100;
+	this.sym = "!";
 	var image = Luxe.resources.cache.get("assets/" + sprite + ".png");
+	this.x = x;
+	this.y = y;
 	var width = 40;
 	var height = 40;
 	var padding = 20;
@@ -1691,16 +1721,27 @@ $hxClasses["Tile"] = Tile;
 Tile.__name__ = ["Tile"];
 Tile.__super__ = luxe_Sprite;
 Tile.prototype = $extend(luxe_Sprite.prototype,{
-	setPos: function(x,y,wrap) {
-		if(wrap == null) wrap = false;
-		if(wrap) x %= 5;
-		if(wrap) y %= 5;
-		if(x < 0) x = -x;
-		if(y < 0) y = -y;
+	setPos: function(_x,_y,wrap) {
+		if(wrap == null) wrap = true;
+		if(wrap) _x %= 5;
+		if(wrap) _y %= 5;
+		if(_x < 0) _x = 4;
+		if(_y < 0) _y = 4;
+		this.newx = _x;
+		this.newy = _y;
+		if(this.goodpos == false) throw new js__$Boot_HaxeError("HOLD ON. SETTING A TILE TO BE SOMEWHERE NEW, BUT IT WAS TOLD TO GO ELSE WHERE!");
+		haxe_Log.trace("Was at " + this.x + " : " + this.y + " will be moving to " + this.newx + " : " + this.newy,{ fileName : "Tile.hx", lineNumber : 45, className : "Tile", methodName : "setPos"});
+		this.goodpos = false;
+	}
+	,showPos: function() {
+		this.goodpos = true;
+		this.x = this.newx;
+		this.y = this.newy;
+		haxe_Log.trace("Now at " + this.x + " : " + this.y,{ fileName : "Tile.hx", lineNumber : 55, className : "Tile", methodName : "showPos"});
 		var width = 40;
 		var height = 40;
 		var padding = 20;
-		this.set_pos(new phoenix_Vector(50 + x * (width + padding),50 + y * (height + padding)));
+		this.set_pos(new phoenix_Vector(50 + this.x * (width + padding),50 + this.y * (height + padding)));
 	}
 	,init: function() {
 		luxe_Sprite.prototype.init.call(this);
@@ -1712,6 +1753,7 @@ Tile.prototype = $extend(luxe_Sprite.prototype,{
 });
 var SquareTile = function(x,y) {
 	Tile.call(this,x,y,"Square");
+	this.sym = "s";
 };
 $hxClasses["SquareTile"] = SquareTile;
 SquareTile.__name__ = ["SquareTile"];
@@ -1792,6 +1834,7 @@ StringTools.fastCodeAt = function(s,index) {
 };
 var TriangleTile = function(x,y) {
 	Tile.call(this,x,y,"Triangle");
+	this.sym = "t";
 };
 $hxClasses["TriangleTile"] = TriangleTile;
 TriangleTile.__name__ = ["TriangleTile"];
@@ -6367,6 +6410,100 @@ luxe_Parcel.prototype = {
 	}
 	,__class__: luxe_Parcel
 	,__properties__: {get_length:"get_length",get_listed:"get_listed"}
+};
+var luxe_ParcelProgress = function(_options) {
+	this.fade_alpha = 0;
+	this.height = 0;
+	this.width = 0;
+	var _view_width = Luxe.core.screen.get_w();
+	var _view_height = Luxe.core.screen.get_h();
+	if(Luxe.camera.get_size() != null) {
+		_view_width = Luxe.camera.get_size().x;
+		_view_height = Luxe.camera.get_size().y;
+	}
+	var _view_mid_x = Math.floor(_view_width / 2);
+	var _view_mid_y = Math.floor(_view_height / 2);
+	this.width = Math.max(Math.floor(_view_width * 0.75),2);
+	this.height = Math.max(Math.floor(_view_height * 0.002),2);
+	this.options = _options;
+	if(this.options.no_visuals == null) this.options.no_visuals = false;
+	this.options.no_visuals;
+	if(this.options.bar == null) this.options.bar = new phoenix_Color().rgb(3421236);
+	this.options.bar;
+	if(this.options.bar_border == null) this.options.bar_border = new phoenix_Color().rgb(1447446);
+	this.options.bar_border;
+	if(this.options.background == null) this.options.background = new phoenix_Color().rgb(592137);
+	this.options.background;
+	if(this.options.fade_in == null) this.options.fade_in = true;
+	this.options.fade_in;
+	if(this.options.fade_out == null) this.options.fade_out = true;
+	this.options.fade_out;
+	if(this.options.fade_time == null) this.options.fade_time = 0.3;
+	this.options.fade_time;
+	this.fade_alpha = this.options.background.a;
+	if(!this.options.no_visuals) {
+		if(this.options.fade_in) {
+			this.options.background.a = 0;
+			this.options.bar.a = 0;
+			this.options.bar_border.a = 0;
+		}
+		var _ypos = Math.floor(_view_height * 0.60);
+		var _half_width = Math.floor(this.width / 2);
+		var _half_height = Math.floor(this.height / 2);
+		this.background = new luxe_Sprite({ no_scene : true, size : new phoenix_Vector(_view_width,_view_height), centered : false, color : this.options.background, depth : 998, visible : true});
+		this.progress_bar = new luxe_Sprite({ pos : new phoenix_Vector(_view_mid_x - _half_width,_ypos - _half_height), size : new phoenix_Vector(2,this.height), no_scene : true, centered : false, color : this.options.bar, depth : 998});
+		this.progress_border = new luxe_Visual({ color : this.options.bar, no_scene : true, pos : new phoenix_Vector(_view_mid_x - _half_width,_ypos - _half_height), geometry : Luxe.draw.rectangle({ w : this.width, h : this.height, depth : 998.1}), depth : 998.1});
+		if(this.options.fade_in) {
+			this.background.color.tween(this.options.fade_time,{ a : this.fade_alpha},true);
+			this.progress_bar.color.tween(this.options.fade_time,{ a : 1},true);
+			this.progress_border.color.tween(this.options.fade_time,{ a : 1},true);
+		}
+	}
+	this.options.parcel.emitter.on(1,$bind(this,this.onbegin));
+	this.options.parcel.emitter.on(3,$bind(this,this.onprogress));
+	this.options.parcel.emitter.on(4,$bind(this,this.oncomplete));
+};
+$hxClasses["luxe.ParcelProgress"] = luxe_ParcelProgress;
+luxe_ParcelProgress.__name__ = ["luxe","ParcelProgress"];
+luxe_ParcelProgress.prototype = {
+	set_progress: function(amount) {
+		if(amount < 0) amount = 0;
+		if(amount > 1) amount = 1;
+		if(!this.options.no_visuals) this.progress_bar.size.set_x(Math.ceil(this.width * amount));
+	}
+	,onbegin: function(_parcel) {
+		this.set_progress(0);
+		if(!this.options.no_visuals) {
+			if(this.options.fade_in) {
+				this.options.background.a = 0;
+				this.options.bar.a = 0;
+				this.options.bar_border.a = 0;
+				this.background.color.tween(this.options.fade_time,{ a : this.fade_alpha},true);
+				this.progress_bar.color.tween(this.options.fade_time,{ a : 1},true);
+				this.progress_border.color.tween(this.options.fade_time,{ a : 1},true);
+			} else {
+				this.options.background.a = 1;
+				this.options.bar.a = 1;
+				this.options.bar_border.a = 1;
+			}
+		}
+	}
+	,onprogress: function(_state) {
+		var _amount = _state.index / _state.total;
+		this.set_progress(_amount);
+	}
+	,oncomplete: function(_parcel) {
+		if(!this.options.no_visuals && this.options.fade_out) {
+			this.do_complete();
+			this.background.color.tween(this.options.fade_time,{ a : 0},true);
+			this.progress_bar.color.tween(this.options.fade_time,{ a : 0},true);
+			this.progress_border.color.tween(this.options.fade_time,{ a : 0},true);
+		} else this.do_complete();
+	}
+	,do_complete: function() {
+		if(this.options.oncomplete != null) this.options.oncomplete(this.options.parcel);
+	}
+	,__class__: luxe_ParcelProgress
 };
 var luxe_Physics = function(_core) {
 	this.step_delta = 0.016666666666666666;
