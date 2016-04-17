@@ -15,6 +15,8 @@ class Board extends luxe.Entity {
 	var height = 70;
 	var padding = 10;
 
+	var level = 0;
+
 	public function new () {
 
 		super({
@@ -22,23 +24,13 @@ class Board extends luxe.Entity {
 			pos: new luxe.Vector(Luxe.screen.mid.x - 2.5*(width+padding), Luxe.screen.mid.y - 2.5*(width+padding))
 		});
 
+		tilesWide = tilesHigh = Math.floor(Math.sqrt(Levels.levels[level].tiles.length));
 
 
 		tiles = new Array<Tile>();
 
+		onLevelStart();
 
-		for (x in 0...tilesWide){
-			for (y in 0...tilesHigh){
-				var tile:Tile = null;
-
-				if (Math.random() > .5){
-					tile = new TriangleTile(x,y,this);
-				}else{
-					tile = new SquareTile(x,y,this);
-				}
-				tiles[y * tilesWide + x] = tile;
-			}
-		}
 
 		var bg = new luxe.Sprite({
 			texture: Luxe.resources.texture("assets/Board.png"),
@@ -85,6 +77,8 @@ class Board extends luxe.Entity {
 		for (x in 0...tilesWide){
 			getTile(x,row,false,false).showPos();
 		}
+
+		if (levelComplete()) onLevelEnd();
 	}
 
 
@@ -99,7 +93,56 @@ class Board extends luxe.Entity {
 		for (y in 0...tilesHigh){
 			getTile(col,y,false,false).showPos();
 		}
+
+		if (levelComplete()) onLevelEnd();
 	}
+
+	public function onLevelEnd (){
+		level++;
+		onLevelStart();
+	}
+	public function onLevelStart () {
+		tilesWide = tilesHigh = Math.floor(Math.sqrt(Levels.levels[level].tiles.length));
+
+		for (tile in tiles){
+			tile.destroy();
+		}
+		tiles = null;
+		tiles = new Array<Tile>();
+
+		for (x in 0...tilesWide){
+			for (y in 0...tilesHigh){
+				var tile:Tile = null;
+
+				//if (Math.random() > .5){
+				//	tile = new TriangleTile(x,y,this);
+				//}else{
+				//	tile = new SquareTile(x,y,this);
+				//}
+				var sym = Levels.levels[level].tiles[y*tilesWide+x];
+				switch (sym){
+					case "T" : tile = new TriangleTile(x,y,this);
+					case "S" : tile = new SquareTile(x,y,this);
+				}
+
+
+				tiles[y * tilesWide + x] = tile;
+			}
+		}
+	}
+
+	public function levelComplete (){
+		for (x in 0...tilesWide){
+			for (y in 0...tilesHigh){
+
+				if (Levels.levels[level].tiles[y*tilesWide+x] != getTile(x,y).sym){
+					return false;
+				}
+			}
+		}
+		return true;
+	}
+
 
 	function debugTiles(tiles:Array<Tile>){
 		/*Sys.println("");

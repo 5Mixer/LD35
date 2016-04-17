@@ -928,26 +928,16 @@ luxe_Entity.prototype = $extend(luxe_Objects.prototype,{
 	,__properties__: $extend(luxe_Objects.prototype.__properties__,{set_scene_root:"set_scene_root",set_origin:"set_origin",get_origin:"get_origin",set_scale:"set_scale",get_scale:"get_scale",set_rotation:"set_rotation",get_rotation:"get_rotation",set_pos:"set_pos",get_pos:"get_pos",set_transform:"set_transform",get_transform:"get_transform",set_active:"set_active",get_active:"get_active",set_scene:"set_scene",get_scene:"get_scene",set_parent:"set_parent",get_parent:"get_parent",set_fixed_rate:"set_fixed_rate",get_fixed_rate:"get_fixed_rate",get_components:"get_components"})
 });
 var Board = function() {
+	this.level = 0;
 	this.padding = 10;
 	this.height = 70;
 	this.width = 70;
 	this.tilesHigh = 5;
 	this.tilesWide = 5;
 	luxe_Entity.call(this,{ name : "Board", pos : new phoenix_Vector(Luxe.core.screen.get_mid().x - 2.5 * (this.width + this.padding),Luxe.core.screen.get_mid().y - 2.5 * (this.width + this.padding))});
+	this.tilesWide = this.tilesHigh = Math.floor(Math.sqrt(Levels.levels[this.level].tiles.length));
 	this.tiles = [];
-	var _g1 = 0;
-	var _g = this.tilesWide;
-	while(_g1 < _g) {
-		var x = _g1++;
-		var _g3 = 0;
-		var _g2 = this.tilesHigh;
-		while(_g3 < _g2) {
-			var y = _g3++;
-			var tile = null;
-			if(Math.random() > .5) tile = new TriangleTile(x,y,this); else tile = new SquareTile(x,y,this);
-			this.tiles[y * this.tilesWide + x] = tile;
-		}
-	}
+	this.onLevelStart();
 	var bg = new luxe_Sprite({ texture : Luxe.resources.cache.get("assets/Board.png"), pos : Luxe.core.screen.get_mid(), size : new phoenix_Vector(420 + this.padding * 2,420 + this.padding * 2), depth : -1});
 	this.debugTiles(this.tiles);
 	var swipe = new org_gesluxe_gestures_SwipeGesture();
@@ -966,10 +956,10 @@ Board.prototype = $extend(luxe_Entity.prototype,{
 		if((js_Boot.__cast(event.gesture , org_gesluxe_gestures_SwipeGesture)).get_offsetY() > 0) y = true; else y = false;
 		if(this.getTile(col,row,false,true) == null) return;
 		if((js_Boot.__cast(event.gesture , org_gesluxe_gestures_SwipeGesture)).get_offsetX() == 0) {
-			haxe_Log.trace("Swipe up/down! Column: " + (col + 1) + ", down:" + (y == null?"null":"" + y),{ fileName : "Board.hx", lineNumber : 69, className : "Board", methodName : "onGesture"});
+			haxe_Log.trace("Swipe up/down! Column: " + (col + 1) + ", down:" + (y == null?"null":"" + y),{ fileName : "Board.hx", lineNumber : 61, className : "Board", methodName : "onGesture"});
 			this.shiftColumn(col,y);
 		} else if((js_Boot.__cast(event.gesture , org_gesluxe_gestures_SwipeGesture)).get_offsetY() == 0) {
-			haxe_Log.trace("Swipe L/R! Row: " + (row + 1) + ", right:" + (x == null?"null":"" + x),{ fileName : "Board.hx", lineNumber : 72, className : "Board", methodName : "onGesture"});
+			haxe_Log.trace("Swipe L/R! Row: " + (row + 1) + ", right:" + (x == null?"null":"" + x),{ fileName : "Board.hx", lineNumber : 64, className : "Board", methodName : "onGesture"});
 			this.shiftRow(row,x);
 		}
 	}
@@ -988,6 +978,7 @@ Board.prototype = $extend(luxe_Entity.prototype,{
 			var x1 = _g11++;
 			this.getTile(x1,row,false,false).showPos();
 		}
+		if(this.levelComplete()) this.onLevelEnd();
 	}
 	,shiftColumn: function(col,down) {
 		var offset;
@@ -1004,6 +995,58 @@ Board.prototype = $extend(luxe_Entity.prototype,{
 			var y1 = _g11++;
 			this.getTile(col,y1,false,false).showPos();
 		}
+		if(this.levelComplete()) this.onLevelEnd();
+	}
+	,onLevelEnd: function() {
+		this.level++;
+		this.onLevelStart();
+	}
+	,onLevelStart: function() {
+		this.tilesWide = this.tilesHigh = Math.floor(Math.sqrt(Levels.levels[this.level].tiles.length));
+		var _g = 0;
+		var _g1 = this.tiles;
+		while(_g < _g1.length) {
+			var tile = _g1[_g];
+			++_g;
+			tile.destroy();
+		}
+		this.tiles = null;
+		this.tiles = [];
+		var _g11 = 0;
+		var _g2 = this.tilesWide;
+		while(_g11 < _g2) {
+			var x = _g11++;
+			var _g3 = 0;
+			var _g21 = this.tilesHigh;
+			while(_g3 < _g21) {
+				var y = _g3++;
+				var tile1 = null;
+				var sym = Levels.levels[this.level].tiles[y * this.tilesWide + x];
+				switch(sym) {
+				case "T":
+					tile1 = new TriangleTile(x,y,this);
+					break;
+				case "S":
+					tile1 = new SquareTile(x,y,this);
+					break;
+				}
+				this.tiles[y * this.tilesWide + x] = tile1;
+			}
+		}
+	}
+	,levelComplete: function() {
+		var _g1 = 0;
+		var _g = this.tilesWide;
+		while(_g1 < _g) {
+			var x = _g1++;
+			var _g3 = 0;
+			var _g2 = this.tilesHigh;
+			while(_g3 < _g2) {
+				var y = _g3++;
+				if(Levels.levels[this.level].tiles[y * this.tilesWide + x] != this.getTile(x,y).sym) return false;
+			}
+		}
+		return true;
 	}
 	,debugTiles: function(tiles) {
 	}
@@ -1021,7 +1064,7 @@ Board.prototype = $extend(luxe_Entity.prototype,{
 			++_g;
 			if(t.x == x && t.y == y && t.goodpos == withAGoodPos) return t;
 		}
-		haxe_Log.trace("No tile was found for " + x + " : " + y,{ fileName : "Board.hx", lineNumber : 126, className : "Board", methodName : "getTile"});
+		haxe_Log.trace("No tile was found for " + x + " : " + y,{ fileName : "Board.hx", lineNumber : 169, className : "Board", methodName : "getTile"});
 		return null;
 	}
 	,init: function() {
@@ -1150,6 +1193,13 @@ Lambda.count = function(it,pred) {
 		}
 	}
 	return n;
+};
+var Levels = function() {
+};
+$hxClasses["Levels"] = Levels;
+Levels.__name__ = ["Levels"];
+Levels.prototype = {
+	__class__: Levels
 };
 var List = function() {
 	this.length = 0;
@@ -24171,6 +24221,7 @@ var ArrayBuffer = (Function("return typeof ArrayBuffer != 'undefined' ? ArrayBuf
 if(ArrayBuffer.prototype.slice == null) ArrayBuffer.prototype.slice = js_html_compat_ArrayBuffer.sliceImpl;
 var DataView = (Function("return typeof DataView != 'undefined' ? DataView : null"))() || js_html_compat_DataView;
 var Uint8Array = (Function("return typeof Uint8Array != 'undefined' ? Uint8Array : null"))() || js_html_compat_Uint8Array._new;
+Levels.levels = [{ message : "Hi! Shift the columns and rows on the left grid, to make it appear like the second.", tiles : ["S","T","T","S"]},{ message : "That was easy, but it'll get more difficult!", tiles : ["S","T","S","T","T","T","S","T","S"]},{ message : "Good, you're getting the hang of it.", tiles : ["C","S","S","C","S","T","T","S","S","T","T","S","C","S","S","C"]}];
 haxe_Serializer.USE_CACHE = false;
 haxe_Serializer.USE_ENUM_INDEX = false;
 haxe_Serializer.BASE64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789%:";
