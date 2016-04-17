@@ -927,39 +927,63 @@ luxe_Entity.prototype = $extend(luxe_Objects.prototype,{
 	,__class__: luxe_Entity
 	,__properties__: $extend(luxe_Objects.prototype.__properties__,{set_scene_root:"set_scene_root",set_origin:"set_origin",get_origin:"get_origin",set_scale:"set_scale",get_scale:"get_scale",set_rotation:"set_rotation",get_rotation:"get_rotation",set_pos:"set_pos",get_pos:"get_pos",set_transform:"set_transform",get_transform:"get_transform",set_active:"set_active",get_active:"get_active",set_scene:"set_scene",get_scene:"get_scene",set_parent:"set_parent",get_parent:"get_parent",set_fixed_rate:"set_fixed_rate",get_fixed_rate:"get_fixed_rate",get_components:"get_components"})
 });
-var Board = function() {
+var Board = function(offx,offy,dummy) {
+	if(dummy == null) dummy = false;
+	this.randomMoves = 0;
+	this.randomized = false;
+	this.offsety = 0.0;
+	this.offsetx = 0.0;
 	this.level = 0;
 	this.padding = 10;
-	this.height = 70;
-	this.width = 70;
+	this.height = 60;
+	this.width = 60;
 	this.tilesHigh = 5;
 	this.tilesWide = 5;
-	luxe_Entity.call(this,{ name : "Board", pos : new phoenix_Vector(Luxe.core.screen.get_mid().x - 2.5 * (this.width + this.padding),Luxe.core.screen.get_mid().y - 2.5 * (this.width + this.padding))});
+	if(offx == null) offx = Luxe.core.screen.get_size().x * .25;
+	if(offy == null) offy = Luxe.core.screen.get_mid().y;
+	this.offsetx = offx;
+	this.offsety = offy;
+	this.controls = !dummy;
 	this.tilesWide = this.tilesHigh = Math.floor(Math.sqrt(Levels.levels[this.level].tiles.length));
+	luxe_Entity.call(this,{ name : "Board", name_unique : true, pos : new phoenix_Vector(Math.max(offx - js_Boot.__cast(this.tilesWide , Float) / 2.0 * (this.width + this.padding),5),offy - js_Boot.__cast(this.tilesHigh , Float) / 2.0 * (this.width + this.padding))});
 	this.tiles = [];
+	this.bg = new luxe_Sprite({ texture : Luxe.resources.cache.get("assets/Board.png"), pos : this.get_pos(), origin : new phoenix_Vector(0,0), size : new phoenix_Vector(370 + this.padding * 2,370 + this.padding * 2), depth : -1});
 	this.onLevelStart();
-	var bg = new luxe_Sprite({ texture : Luxe.resources.cache.get("assets/Board.png"), pos : Luxe.core.screen.get_mid(), size : new phoenix_Vector(420 + this.padding * 2,420 + this.padding * 2), depth : -1});
 	this.debugTiles(this.tiles);
-	var swipe = new org_gesluxe_gestures_SwipeGesture();
-	swipe.events.listen("gesture.recognized",$bind(this,this.onGesture));
+	if(this.controls) {
+		var swipe = new org_gesluxe_gestures_SwipeGesture();
+		swipe.events.listen("gesture.recognized",$bind(this,this.onGesture));
+	}
 };
 $hxClasses["Board"] = Board;
 Board.__name__ = ["Board"];
 Board.__super__ = luxe_Entity;
 Board.prototype = $extend(luxe_Entity.prototype,{
-	onGesture: function(event) {
-		var col = Math.floor((event.gesture.get_location().x - this.get_pos().x) / 80);
-		var row = Math.floor((event.gesture.get_location().y - this.get_pos().y) / 80);
+	randomMove: function() {
+		this.randomMoves--;
+		var col = Math.floor(Math.random() * this.tilesWide);
+		var row = Math.floor(Math.random() * this.tilesHigh);
+		var dir = Math.random() > 0.5;
+		if(Math.random() > 0.5) this.shiftRow(row,dir); else this.shiftColumn(col,dir);
+		if(this.randomMoves > 0 || this.levelComplete(false)) Luxe.timer.schedule(0.25,$bind(this,this.randomMove)); else this.randomized = true;
+	}
+	,randomize: function(moves) {
+		this.randomMoves = moves;
+		this.randomMove();
+	}
+	,onGesture: function(event) {
+		var col = Math.floor((event.gesture.get_location().x - this.get_pos().x) / 70);
+		var row = Math.floor((event.gesture.get_location().y - this.get_pos().y) / 70);
 		var x;
 		if((js_Boot.__cast(event.gesture , org_gesluxe_gestures_SwipeGesture)).get_offsetX() > 0) x = true; else x = false;
 		var y;
 		if((js_Boot.__cast(event.gesture , org_gesluxe_gestures_SwipeGesture)).get_offsetY() > 0) y = true; else y = false;
 		if(this.getTile(col,row,false,true) == null) return;
 		if((js_Boot.__cast(event.gesture , org_gesluxe_gestures_SwipeGesture)).get_offsetX() == 0) {
-			haxe_Log.trace("Swipe up/down! Column: " + (col + 1) + ", down:" + (y == null?"null":"" + y),{ fileName : "Board.hx", lineNumber : 61, className : "Board", methodName : "onGesture"});
+			haxe_Log.trace("Swipe up/down! Column: " + (col + 1) + ", down:" + (y == null?"null":"" + y),{ fileName : "Board.hx", lineNumber : 113, className : "Board", methodName : "onGesture"});
 			this.shiftColumn(col,y);
 		} else if((js_Boot.__cast(event.gesture , org_gesluxe_gestures_SwipeGesture)).get_offsetY() == 0) {
-			haxe_Log.trace("Swipe L/R! Row: " + (row + 1) + ", right:" + (x == null?"null":"" + x),{ fileName : "Board.hx", lineNumber : 64, className : "Board", methodName : "onGesture"});
+			haxe_Log.trace("Swipe L/R! Row: " + (row + 1) + ", right:" + (x == null?"null":"" + x),{ fileName : "Board.hx", lineNumber : 116, className : "Board", methodName : "onGesture"});
 			this.shiftRow(row,x);
 		}
 	}
@@ -1000,41 +1024,65 @@ Board.prototype = $extend(luxe_Entity.prototype,{
 	,onLevelEnd: function() {
 		this.level++;
 		this.onLevelStart();
+		this.events.fire("EndLevel",this.level);
+		this.randomized = false;
 	}
 	,onLevelStart: function() {
+		if(this.level == Levels.levels.length) {
+			var _g = 0;
+			var _g1 = this.tiles;
+			while(_g < _g1.length) {
+				var tile = _g1[_g];
+				++_g;
+				tile.destroy();
+			}
+			this.tiles = null;
+			this.events.fire("Finished",null);
+			return;
+		}
+		this.events.fire("NewLevel",this.level);
 		this.tilesWide = this.tilesHigh = Math.floor(Math.sqrt(Levels.levels[this.level].tiles.length));
-		var _g = 0;
-		var _g1 = this.tiles;
-		while(_g < _g1.length) {
-			var tile = _g1[_g];
-			++_g;
-			tile.destroy();
+		this.set_pos(new phoenix_Vector(Math.max(this.offsetx - js_Boot.__cast(this.tilesWide , Float) / 2 * (this.width + this.padding),5),this.offsety - js_Boot.__cast(this.tilesHigh , Float) / 2 * (this.width + this.padding)));
+		var _g2 = 0;
+		var _g11 = this.tiles;
+		while(_g2 < _g11.length) {
+			var tile1 = _g11[_g2];
+			++_g2;
+			tile1.destroy();
 		}
 		this.tiles = null;
 		this.tiles = [];
-		var _g11 = 0;
-		var _g2 = this.tilesWide;
-		while(_g11 < _g2) {
-			var x = _g11++;
-			var _g3 = 0;
+		var _g12 = 0;
+		var _g3 = this.tilesWide;
+		while(_g12 < _g3) {
+			var x = _g12++;
+			var _g31 = 0;
 			var _g21 = this.tilesHigh;
-			while(_g3 < _g21) {
-				var y = _g3++;
-				var tile1 = null;
+			while(_g31 < _g21) {
+				var y = _g31++;
+				var tile2 = null;
 				var sym = Levels.levels[this.level].tiles[y * this.tilesWide + x];
 				switch(sym) {
 				case "T":
-					tile1 = new TriangleTile(x,y,this);
+					tile2 = new TriangleTile(x,y,this);
 					break;
 				case "S":
-					tile1 = new SquareTile(x,y,this);
+					tile2 = new SquareTile(x,y,this);
+					break;
+				case "C":
+					tile2 = new CircleTile(x,y,this);
 					break;
 				}
-				this.tiles[y * this.tilesWide + x] = tile1;
+				this.tiles[y * this.tilesWide + x] = tile2;
 			}
 		}
+		this.bg.set_size(new phoenix_Vector(this.tilesWide * (this.width + this.padding) + this.padding * 2,this.tilesHigh * (this.height + this.padding) + this.padding * 2));
+		this.bg.set_pos(new phoenix_Vector(this.get_pos().x - this.padding,this.get_pos().y - this.padding));
+		if(this.controls) this.randomize(10);
 	}
-	,levelComplete: function() {
+	,levelComplete: function(noticeRandomization) {
+		if(noticeRandomization == null) noticeRandomization = true;
+		if(this.randomized == false && noticeRandomization) return false;
 		var _g1 = 0;
 		var _g = this.tilesWide;
 		while(_g1 < _g) {
@@ -1043,9 +1091,13 @@ Board.prototype = $extend(luxe_Entity.prototype,{
 			var _g2 = this.tilesHigh;
 			while(_g3 < _g2) {
 				var y = _g3++;
-				if(Levels.levels[this.level].tiles[y * this.tilesWide + x] != this.getTile(x,y).sym) return false;
+				if(Levels.levels[this.level].tiles[y * this.tilesWide + x] != this.getTile(x,y).sym) {
+					haxe_Log.trace("Not complete! Tile was " + this.getTile(x,y).sym + " but meant to be " + Levels.levels[this.level].tiles[y * this.tilesWide + x],{ fileName : "Board.hx", lineNumber : 217, className : "Board", methodName : "levelComplete"});
+					return false;
+				}
 			}
 		}
+		haxe_Log.trace("Complete!",{ fileName : "Board.hx", lineNumber : 222, className : "Board", methodName : "levelComplete"});
 		return true;
 	}
 	,debugTiles: function(tiles) {
@@ -1062,9 +1114,10 @@ Board.prototype = $extend(luxe_Entity.prototype,{
 		while(_g < _g1.length) {
 			var t = _g1[_g];
 			++_g;
+			if(t == null) throw new js__$Boot_HaxeError("lolwat null tile");
 			if(t.x == x && t.y == y && t.goodpos == withAGoodPos) return t;
 		}
-		haxe_Log.trace("No tile was found for " + x + " : " + y,{ fileName : "Board.hx", lineNumber : 169, className : "Board", methodName : "getTile"});
+		haxe_Log.trace("No tile was found for " + x + " : " + y,{ fileName : "Board.hx", lineNumber : 250, className : "Board", methodName : "getTile"});
 		return null;
 	}
 	,init: function() {
@@ -1074,6 +1127,330 @@ Board.prototype = $extend(luxe_Entity.prototype,{
 		luxe_Entity.prototype.ondestroy.call(this);
 	}
 	,__class__: Board
+});
+var luxe_Visual = function(_options) {
+	this.ignore_texture_on_geometry_change = false;
+	this._creating_geometry = false;
+	this._has_custom_origin = false;
+	this.radians = 0.0;
+	this.depth = 0.0;
+	this.visible = true;
+	this.locked = false;
+	if(_options == null) throw new js__$Boot_HaxeError(luxe_DebugError.null_assertion("_options was null" + (" ( " + "Visual requires non-null options" + " )")));
+	this._rotation_euler = new phoenix_Vector();
+	this._rotation_quat = new phoenix_Quaternion();
+	luxe_Entity.call(this,_options);
+	this.set_color(new phoenix_Color());
+	this.set_size(new phoenix_Vector());
+	if(this.options.texture != null) this.set_texture(this.options.texture);
+	if(this.options.shader != null) this.set_shader(this.options.shader);
+	if(this.options.color != null) this.set_color(this.options.color);
+	if(this.options.depth != null) this.set_depth(this.options.depth);
+	if(this.options.visible != null) this.set_visible(this.options.visible);
+	if(this.options.size != null) {
+		this.set_size(this.options.size);
+		this._create_geometry();
+	} else if(this.texture != null) {
+		this.set_size(new phoenix_Vector(this.texture.width,this.texture.height));
+		this._create_geometry();
+	} else {
+		this.set_size(new phoenix_Vector(64,64));
+		this._create_geometry();
+	}
+};
+$hxClasses["luxe.Visual"] = luxe_Visual;
+luxe_Visual.__name__ = ["luxe","Visual"];
+luxe_Visual.__super__ = luxe_Entity;
+luxe_Visual.prototype = $extend(luxe_Entity.prototype,{
+	_create_geometry: function() {
+		if(this.options.geometry == null) {
+			if(this.options.no_geometry == null || this.options.no_geometry == false) {
+				this._creating_geometry = true;
+				var _batcher = null;
+				if(this.options.no_batcher_add == null || this.options.no_batcher_add == false) {
+					if(this.options.batcher != null) _batcher = this.options.batcher; else _batcher = Luxe.renderer.batcher;
+				}
+				this.set_geometry(new phoenix_geometry_QuadGeometry({ id : this.get_name() + ".visual", x : 0, y : 0, w : this.size.x, h : this.size.y, scale : new phoenix_Vector(1,1,1), texture : this.texture, color : this.color, shader : this.shader, batcher : _batcher, depth : this.options.depth == null?0:this.options.depth, visible : this.options.visible == null?this.visible:this.options.visible}));
+				this._creating_geometry = false;
+				this.on_geometry_created();
+			}
+		} else this.set_geometry(this.options.geometry);
+		if(this.geometry != null) {
+			this.geometry.id = this.get_name() + ".visual";
+			this.geometry.transform.id = this.get_name() + ".visual.transform";
+		}
+		if(this.options.origin != null) {
+			this._has_custom_origin = true;
+			this.set_origin(this.options.origin);
+		}
+		if(this.options.rotation_z != null) this.set_rotation_z(this.options.rotation_z);
+	}
+	,ondestroy: function() {
+		if(this.geometry != null && this.geometry.added) this.geometry.drop(true);
+		this.set_transform(null);
+		this.options = null;
+		this.set_geometry(null);
+		this.set_texture(null);
+		this.set_shader(null);
+		this.set_color(null);
+		this.set_size(null);
+		this.set_clip_rect(null);
+		this._rotation_euler = null;
+		this._rotation_quat = null;
+	}
+	,on_geometry_created: function() {
+	}
+	,set_visible: function(_v) {
+		this.visible = _v;
+		if(this.geometry != null) this.geometry.set_visible(this.visible);
+		return this.visible;
+	}
+	,set_depth: function(_v) {
+		if(this.geometry != null) this.geometry.set_depth(_v);
+		return this.depth = _v;
+	}
+	,set_color: function(_c) {
+		if(this.color != null && this.geometry != null) this.geometry.set_color(_c);
+		return this.color = _c;
+	}
+	,set_texture: function(_t) {
+		if(this.geometry != null && this.geometry.state.texture != _t) this.geometry.set_texture(_t);
+		return this.texture = _t;
+	}
+	,set_shader: function(_s) {
+		if(this.geometry != null && this.geometry.state.shader != _s) this.geometry.set_shader(_s);
+		return this.shader = _s;
+	}
+	,set_geometry: function(_g) {
+		if(this.geometry == _g) return this.geometry;
+		if(this.geometry != null) this.geometry.drop();
+		this.geometry = _g;
+		if(this.geometry != null) {
+			this.geometry.transform.set_parent(this.get_transform());
+			if(this._creating_geometry == false) {
+				this.geometry.set_color(this.color);
+				this.geometry.set_depth(this.depth);
+				this.geometry.set_visible(this.visible);
+				if(!this.ignore_texture_on_geometry_change) {
+				}
+			}
+		}
+		return this.geometry;
+	}
+	,set_parent_from_transform: function(_parent) {
+		luxe_Entity.prototype.set_parent_from_transform.call(this,_parent);
+		if(this.geometry != null) this.geometry.transform.set_parent(this.get_transform());
+	}
+	,set_rotation_from_transform: function(_rotation) {
+		luxe_Entity.prototype.set_rotation_from_transform.call(this,_rotation);
+		this._rotation_euler.setEulerFromQuaternion(_rotation,null);
+		this._rotation_quat.copy(_rotation);
+	}
+	,set_size: function(_v) {
+		this.size = _v;
+		if(this.size != null) phoenix_Vector.Listen(this.size,$bind(this,this._size_change));
+		return this.size;
+	}
+	,get_rotation_z: function() {
+		return luxe_utils_Maths.degrees(this.get_radians());
+	}
+	,set_rotation_z: function(_degrees) {
+		this.set_radians(_degrees * 0.017453292519943278);
+		return _degrees;
+	}
+	,set_radians: function(_r) {
+		this._rotation_euler.set_z(_r);
+		this._rotation_quat.setFromEuler(this._rotation_euler);
+		this.set_rotation(this._rotation_quat.clone());
+		return this.radians = _r;
+	}
+	,get_radians: function() {
+		return this.radians;
+	}
+	,set_locked: function(_l) {
+		if(this.geometry != null) this.geometry.set_locked(_l);
+		return this.locked = _l;
+	}
+	,set_clip_rect: function(_val) {
+		if(this.geometry != null) this.geometry.set_clip_rect(_val);
+		return this.clip_rect = _val;
+	}
+	,_size_change: function(_v) {
+		this.set_size(this.size);
+	}
+	,init: function() {
+		luxe_Entity.prototype.init.call(this);
+	}
+	,__class__: luxe_Visual
+	,__properties__: $extend(luxe_Entity.prototype.__properties__,{set_rotation_z:"set_rotation_z",get_rotation_z:"get_rotation_z",set_radians:"set_radians",get_radians:"get_radians",set_clip_rect:"set_clip_rect",set_depth:"set_depth",set_visible:"set_visible",set_color:"set_color",set_shader:"set_shader",set_texture:"set_texture",set_locked:"set_locked",set_geometry:"set_geometry",set_size:"set_size"})
+});
+var luxe_Sprite = function(options) {
+	this.flipy = false;
+	this.flipx = false;
+	this.centered = true;
+	this.set_uv(new phoenix_Rectangle());
+	if(options == null) throw new js__$Boot_HaxeError(luxe_DebugError.null_assertion("options was null" + (" ( " + "Sprite requires non-null options" + " )")));
+	if(options.centered != null) this.set_centered(options.centered);
+	if(options.flipx != null) this.set_flipx(options.flipx);
+	if(options.flipy != null) this.set_flipy(options.flipy);
+	luxe_Visual.call(this,options);
+};
+$hxClasses["luxe.Sprite"] = luxe_Sprite;
+luxe_Sprite.__name__ = ["luxe","Sprite"];
+luxe_Sprite.__super__ = luxe_Visual;
+luxe_Sprite.prototype = $extend(luxe_Visual.prototype,{
+	on_geometry_created: function() {
+		luxe_Visual.prototype.on_geometry_created.call(this);
+		if(this.texture != null) {
+			this.set_uv((function($this) {
+				var $r;
+				if($this.options.uv == null) $this.options.uv = new phoenix_Rectangle(0,0,$this.texture.width,$this.texture.height);
+				$r = $this.options.uv;
+				return $r;
+			}(this)));
+			if(this.texture.resource_type == 5) this.set_flipy(true);
+		}
+		this.set_centered(!(!this.centered));
+		this.set_flipx(!(!this.flipx));
+		this.set_flipy(!(!this.flipy));
+	}
+	,set_geometry: function(_g) {
+		this.geometry_quad = _g;
+		return luxe_Visual.prototype.set_geometry.call(this,_g);
+	}
+	,ondestroy: function() {
+		this.set_uv(null);
+		this.geometry_quad = null;
+		luxe_Visual.prototype.ondestroy.call(this);
+	}
+	,point_inside: function(_p) {
+		if(this.geometry == null) return false;
+		return Luxe.utils.geometry.point_in_geometry(_p,this.geometry);
+	}
+	,point_inside_AABB: function(_p) {
+		if(this.get_pos() == null) return false;
+		if(this.size == null) return false;
+		var _s_x = this.size.x * this.get_scale().x;
+		var _s_y = this.size.y * this.get_scale().y;
+		if(this.centered) {
+			var _hx = _s_x / 2;
+			var _hy = _s_y / 2;
+			if(_p.x < this.get_pos().x - _hx) return false;
+			if(_p.y < this.get_pos().y - _hy) return false;
+			if(_p.x > this.get_pos().x + _s_x - _hx) return false;
+			if(_p.y > this.get_pos().y + _s_y - _hy) return false;
+		} else {
+			if(_p.x < this.get_pos().x) return false;
+			if(_p.y < this.get_pos().y) return false;
+			if(_p.x > this.get_pos().x + _s_x) return false;
+			if(_p.y > this.get_pos().y + _s_y) return false;
+		}
+		return true;
+	}
+	,set_uv: function(_uv) {
+		if(_uv == null) return this.uv = _uv;
+		if(this.geometry_quad != null) this.geometry_quad.uv(_uv);
+		this.uv = _uv;
+		phoenix_Rectangle.listen(this.uv,$bind(this,this._uv_change));
+		return this.uv;
+	}
+	,set_flipy: function(_v) {
+		if(_v == this.flipy) return this.flipy;
+		if(this.geometry_quad != null) this.geometry_quad.set_flipy(_v);
+		return this.flipy = _v;
+	}
+	,set_flipx: function(_v) {
+		if(_v == this.flipx) return this.flipx;
+		if(this.geometry_quad != null) this.geometry_quad.set_flipx(_v);
+		return this.flipx = _v;
+	}
+	,set_size: function(_v) {
+		if(this.geometry_quad != null) {
+			this.geometry_quad.resize(new phoenix_Vector(_v.x,_v.y));
+			if(!this._has_custom_origin) {
+				if(this.centered) this.set_origin(new phoenix_Vector(_v.x,_v.y,_v.z,_v.w).divideScalar(2));
+			}
+		}
+		return luxe_Visual.prototype.set_size.call(this,_v);
+	}
+	,set_centered: function(_c) {
+		if(this.size != null) {
+			if(_c) this.set_origin(new phoenix_Vector(this.size.x / 2,this.size.y / 2)); else this.set_origin(new phoenix_Vector());
+		}
+		return this.centered = _c;
+	}
+	,_uv_change: function(_v) {
+		this.set_uv(this.uv);
+	}
+	,init: function() {
+		luxe_Visual.prototype.init.call(this);
+	}
+	,__class__: luxe_Sprite
+	,__properties__: $extend(luxe_Visual.prototype.__properties__,{set_uv:"set_uv",set_flipy:"set_flipy",set_flipx:"set_flipx",set_centered:"set_centered"})
+});
+var Tile = function(x,y,sprite,_board) {
+	this.goodpos = true;
+	this.newy = -100;
+	this.newx = -100;
+	this.y = -100;
+	this.x = -100;
+	this.sym = "!";
+	var image = Luxe.resources.cache.get("assets/" + sprite + ".png");
+	this.board = _board;
+	this.x = x;
+	this.y = y;
+	var width = 60;
+	var height = 60;
+	var padding = 10;
+	image.set_filter_min(image.set_filter_mag(9728));
+	luxe_Sprite.call(this,{ pos : new phoenix_Vector(this.board.get_pos().x + x * (width + padding),this.board.get_pos().y + y * (height + padding)), size : new phoenix_Vector(width,height), origin : new phoenix_Vector(-padding / 2,-padding / 2), texture : image});
+};
+$hxClasses["Tile"] = Tile;
+Tile.__name__ = ["Tile"];
+Tile.__super__ = luxe_Sprite;
+Tile.prototype = $extend(luxe_Sprite.prototype,{
+	setPos: function(_x,_y,wrap) {
+		if(wrap == null) wrap = true;
+		if(wrap) _x %= this.board.tilesWide;
+		if(wrap) _y %= this.board.tilesHigh;
+		if(_x < 0) _x = this.board.tilesWide + _x;
+		if(_y < 0) _y = this.board.tilesHigh + _y;
+		this.newx = _x;
+		this.newy = _y;
+		this.goodpos = false;
+	}
+	,showPos: function() {
+		this.goodpos = true;
+		this.x = this.newx;
+		this.y = this.newy;
+		var width = 60;
+		var height = 60;
+		var padding = 10;
+		luxe_tween_Actuate.tween(this.get_pos(),0.25,{ x : this.board.get_pos().x + this.x * (width + padding), y : this.board.get_pos().y + this.y * (height + padding)});
+	}
+	,init: function() {
+		luxe_Sprite.prototype.init.call(this);
+	}
+	,ondestroy: function() {
+		luxe_Sprite.prototype.ondestroy.call(this);
+	}
+	,__class__: Tile
+});
+var CircleTile = function(x,y,b) {
+	Tile.call(this,x,y,"Circle",b);
+	this.sym = "C";
+};
+$hxClasses["CircleTile"] = CircleTile;
+CircleTile.__name__ = ["CircleTile"];
+CircleTile.__super__ = Tile;
+CircleTile.prototype = $extend(Tile.prototype,{
+	init: function() {
+		Tile.prototype.init.call(this);
+	}
+	,ondestroy: function() {
+		Tile.prototype.ondestroy.call(this);
+	}
+	,__class__: CircleTile
 });
 var EReg = function(r,opt) {
 	opt = opt.split("u").join("");
@@ -1101,6 +1478,241 @@ EReg.prototype = {
 	}
 	,__class__: EReg
 };
+var GradientDirection = $hxClasses["GradientDirection"] = { __ename__ : ["GradientDirection"], __constructs__ : ["Vertical","Horizontal"] };
+GradientDirection.Vertical = ["Vertical",0];
+GradientDirection.Vertical.toString = $estr;
+GradientDirection.Vertical.__enum__ = GradientDirection;
+GradientDirection.Horizontal = ["Horizontal",1];
+GradientDirection.Horizontal.toString = $estr;
+GradientDirection.Horizontal.__enum__ = GradientDirection;
+var luxe_ID = function(_name,_id) {
+	if(_id == null) _id = "";
+	if(_name == null) _name = "";
+	this.name = "";
+	this.name = _name;
+	if(_id == "") this.id = Luxe.utils.uniqueid(); else this.id = _id;
+};
+$hxClasses["luxe.ID"] = luxe_ID;
+luxe_ID.__name__ = ["luxe","ID"];
+luxe_ID.prototype = {
+	__class__: luxe_ID
+};
+var luxe_Component = function(_options) {
+	var _name = "";
+	if(_options != null) {
+		if(_options.name != null) _name = _options.name;
+	}
+	luxe_ID.call(this,_name == ""?Luxe.utils.uniqueid():_name);
+};
+$hxClasses["luxe.Component"] = luxe_Component;
+luxe_Component.__name__ = ["luxe","Component"];
+luxe_Component.__super__ = luxe_ID;
+luxe_Component.prototype = $extend(luxe_ID.prototype,{
+	init: function() {
+	}
+	,update: function(dt) {
+	}
+	,onadded: function() {
+	}
+	,onremoved: function() {
+	}
+	,onfixedupdate: function(rate) {
+	}
+	,onreset: function() {
+	}
+	,ondestroy: function() {
+	}
+	,onkeyup: function(event) {
+	}
+	,onkeydown: function(event) {
+	}
+	,ontextinput: function(event) {
+	}
+	,oninputdown: function(event) {
+	}
+	,oninputup: function(event) {
+	}
+	,onmousedown: function(event) {
+	}
+	,onmouseup: function(event) {
+	}
+	,onmousemove: function(event) {
+	}
+	,onmousewheel: function(event) {
+	}
+	,ontouchdown: function(event) {
+	}
+	,ontouchup: function(event) {
+	}
+	,ontouchmove: function(event) {
+	}
+	,ongamepadup: function(event) {
+	}
+	,ongamepaddown: function(event) {
+	}
+	,ongamepadaxis: function(event) {
+	}
+	,ongamepaddevice: function(event) {
+	}
+	,onwindowmoved: function(event) {
+	}
+	,onwindowresized: function(event) {
+	}
+	,onwindowsized: function(event) {
+	}
+	,onwindowminimized: function(event) {
+	}
+	,onwindowrestored: function(event) {
+	}
+	,add: function(component) {
+		return this.get_entity().add(component);
+	}
+	,remove: function(_name) {
+		return this.get_entity().remove(_name);
+	}
+	,get: function(_name,in_children) {
+		if(in_children == null) in_children = false;
+		return this.get_entity().get(_name,in_children);
+	}
+	,get_any: function(_name,in_children,first_only) {
+		if(first_only == null) first_only = true;
+		if(in_children == null) in_children = false;
+		return this.get_entity().get_any(_name,in_children,first_only);
+	}
+	,has: function(_name) {
+		return this.get_entity().has(_name);
+	}
+	,_detach_entity: function() {
+		if(this.get_entity() != null) {
+		}
+	}
+	,_attach_entity: function() {
+		if(this.get_entity() != null) {
+		}
+	}
+	,set_entity: function(_entity) {
+		this._detach_entity();
+		this.entity = _entity;
+		this._attach_entity();
+		return this.get_entity();
+	}
+	,get_entity: function() {
+		return this.entity;
+	}
+	,set_pos: function(_p) {
+		return this.get_entity().get_transform().set_pos(_p);
+	}
+	,get_pos: function() {
+		return this.get_entity().get_transform().get_pos();
+	}
+	,set_rotation: function(_r) {
+		return this.get_entity().get_transform().set_rotation(_r);
+	}
+	,get_rotation: function() {
+		return this.get_entity().get_transform().get_rotation();
+	}
+	,set_scale: function(_s) {
+		return this.get_entity().get_transform().set_scale(_s);
+	}
+	,get_scale: function() {
+		return this.get_entity().get_transform().get_scale();
+	}
+	,set_origin: function(_o) {
+		return this.get_entity().get_transform().set_origin(_o);
+	}
+	,get_origin: function() {
+		return this.get_entity().get_transform().get_origin();
+	}
+	,set_transform: function(_o) {
+		return this.get_entity().set_transform(_o);
+	}
+	,get_transform: function() {
+		return this.get_entity().get_transform();
+	}
+	,entity_pos_change: function(_pos) {
+	}
+	,entity_scale_change: function(_scale) {
+	}
+	,entity_rotation_change: function(_rotation) {
+	}
+	,entity_origin_change: function(_origin) {
+	}
+	,entity_parent_change: function(_parent) {
+	}
+	,toString: function() {
+		return "luxe Component: " + this.name + " on " + this.get_entity().get_name() + " / id: " + this.id;
+	}
+	,__class__: luxe_Component
+	,__properties__: {set_origin:"set_origin",get_origin:"get_origin",set_scale:"set_scale",get_scale:"get_scale",set_rotation:"set_rotation",get_rotation:"get_rotation",set_pos:"set_pos",get_pos:"get_pos",set_entity:"set_entity",get_entity:"get_entity"}
+});
+var Gradient = function(colorA,colorB,direction) {
+	this._direction = GradientDirection.Vertical;
+	luxe_Component.call(this,{ name : "gradient"});
+	this._colorA = colorA;
+	this._colorB = colorB;
+	if(direction == null) direction = GradientDirection.Vertical;
+	this._direction = direction;
+};
+$hxClasses["Gradient"] = Gradient;
+Gradient.__name__ = ["Gradient"];
+Gradient.__super__ = luxe_Component;
+Gradient.prototype = $extend(luxe_Component.prototype,{
+	init: function() {
+		this._sprite = this.get_entity();
+		this._updateColors();
+	}
+	,_updateColors: function() {
+		if(this._sprite == null) return;
+		if(this._direction == GradientDirection.Vertical) {
+			this._sprite.geometry.vertices[0].color = this._colorA;
+			this._sprite.geometry.vertices[1].color = this._colorA;
+			this._sprite.geometry.vertices[4].color = this._colorA;
+			this._sprite.geometry.vertices[2].color = this._colorB;
+			this._sprite.geometry.vertices[3].color = this._colorB;
+			this._sprite.geometry.vertices[5].color = this._colorB;
+		} else {
+			this._sprite.geometry.vertices[0].color = this._colorA;
+			this._sprite.geometry.vertices[3].color = this._colorA;
+			this._sprite.geometry.vertices[4].color = this._colorA;
+			this._sprite.geometry.vertices[1].color = this._colorB;
+			this._sprite.geometry.vertices[2].color = this._colorB;
+			this._sprite.geometry.vertices[5].color = this._colorB;
+		}
+	}
+	,get_colorA: function() {
+		return this._colorA;
+	}
+	,set_colorA: function(value) {
+		this._colorA = value;
+		this._updateColors();
+		return value;
+	}
+	,get_colorB: function() {
+		return this._colorB;
+	}
+	,set_colorB: function(value) {
+		this._colorB = value;
+		this._updateColors();
+		return value;
+	}
+	,get_direction: function() {
+		return this._direction;
+	}
+	,set_direction: function(value) {
+		if(value == this._direction) return value;
+		this._direction = value;
+		this._updateColors();
+		return value;
+	}
+	,ondestroy: function() {
+		luxe_Component.prototype.ondestroy.call(this);
+	}
+	,onremoved: function() {
+		luxe_Component.prototype.onremoved.call(this);
+	}
+	,__class__: Gradient
+	,__properties__: $extend(luxe_Component.prototype.__properties__,{set_direction:"set_direction",get_direction:"get_direction",set_colorB:"set_colorB",get_colorB:"get_colorB",set_colorA:"set_colorA",get_colorA:"get_colorA"})
+});
 var HxOverrides = function() { };
 $hxClasses["HxOverrides"] = HxOverrides;
 HxOverrides.__name__ = ["HxOverrides"];
@@ -1424,6 +2036,8 @@ luxe_Game.prototype = $extend(luxe_Emitter.prototype,{
 	,__class__: luxe_Game
 });
 var Main = function() {
+	this.gradients = [{ a : 5530210, b : 1583176},{ a : 5530210, b : 704444},{ a : 5530210, b : 4718664},{ a : 5530210, b : 4825245},{ a : 5530210, b : 7451264}];
+	this.sec = 0;
 	luxe_Game.call(this);
 };
 $hxClasses["Main"] = Main;
@@ -1431,24 +2045,63 @@ Main.__name__ = ["Main"];
 Main.__super__ = luxe_Game;
 Main.prototype = $extend(luxe_Game.prototype,{
 	config: function(config) {
+		config.render.antialiasing = 4;
 		return config;
 	}
 	,ready: function() {
 		org_gesluxe_Gesluxe.init();
-		var parcel = new luxe_Parcel({ textures : [{ id : "assets/Triangle.png"},{ id : "assets/Wood.jpg"},{ id : "assets/Board.png"},{ id : "assets/Square.png"}], fonts : [{ id : "assets/fonts/Arvo.fnt"},{ id : "assets/fonts/PaytoneOne.fnt"}], sounds : [{ id : "assets/ShapeShiftTheme.wav", is_stream : false}]});
+		var parcel = new luxe_Parcel({ textures : [{ id : "assets/Triangle.png"},{ id : "assets/Wood.jpg"},{ id : "assets/Board.png"},{ id : "assets/Square.png"},{ id : "assets/Circle.png"}], fonts : [{ id : "assets/fonts/Arvo.fnt"},{ id : "assets/fonts/PaytoneOne.fnt"}], sounds : [{ id : "assets/ShapeShiftTheme.wav", is_stream : false}]});
 		new luxe_ParcelProgress({ parcel : parcel, background : new phoenix_Color(0.5,0.89,0.31,0.75), oncomplete : $bind(this,this.assets_loaded)});
 		parcel.load();
 	}
 	,assets_loaded: function(_) {
+		var _g = this;
 		this.music = Luxe.resources.cache.get("assets/ShapeShiftTheme.wav");
 		this.musicHandle = Luxe.audio.loop(this.music.source);
-		new Board();
-		var text_size = Math.min(Math.round(Luxe.core.screen.get_h() / 12),48);
+		var text_size = Math.min(Math.round(Luxe.core.screen.get_h() / 12),24);
 		this.text = new luxe_Text({ pos : new phoenix_Vector(Luxe.core.screen.get_mid().x,100), point_size : text_size, depth : 3, align : 2, font : Luxe.resources.cache.get("assets/fonts/PaytoneOne.fnt"), text : "Shiftrift", color : new phoenix_Color(0.41,0.69,0.27)});
-		var bg = new luxe_Sprite({ size : Luxe.core.screen.get_size(), origin : new phoenix_Vector(0,0), depth : -50, color : new phoenix_Color(0.34,0.29,0.32)});
+		this.timerText = new luxe_Text({ pos : new phoenix_Vector(Luxe.core.screen.get_mid().x,100), point_size : text_size, depth : 3, align : 2, font : Luxe.resources.cache.get("assets/fonts/PaytoneOne.fnt"), text : "", glow_color : new phoenix_Color(0.28,0.29,0.27), glow_amount : 5.0, color : new phoenix_Color(0.41,0.69,0.27)});
+		this.board = new Board(Luxe.core.screen.get_size().x * 0.25,null,false);
+		this.text.get_pos().set_y(this.board.get_pos().y / 2 - this.text.size.y / 2);
+		this.timerText.get_pos().set_y(Luxe.core.screen.get_size().y - 30 - this.text.size.y / 2);
+		var exampleBoard = new Board(Luxe.core.screen.get_size().x * 0.75,null,true);
+		this.board.events.listen("EndLevel",function(level) {
+			exampleBoard.onLevelEnd();
+		});
+		this.board.events.listen("Finished",function(_1) {
+			_g.text.set_text("Woo! You actually finished! In " + _g.sec + " seconds. Comment your score!");
+			_g.sec = 0;
+			Luxe.timer.schedule(5,function() {
+				_g.board.level = 0;
+				_g.board.onLevelStart();
+			});
+		});
+		this.board.events.listen("NewLevel",function(level1) {
+			_g.text.set_text(Levels.levels[level1].message);
+			_g.text.get_pos().set_y(_g.board.get_pos().y / 2 - _g.text.size.y / 2);
+			_g.gradienterise();
+		});
+		this.bg = new luxe_Sprite({ size : Luxe.core.screen.get_size(), origin : new phoenix_Vector(0,0), depth : -50, color : new phoenix_Color(0.34,0.29,0.32)});
+		this.bg.add(this.grad = new Gradient(new phoenix_Color().rgb(this.gradients[0].a),new phoenix_Color().rgb(this.gradients[0].b)));
+		this.text.set_text(Levels.levels[0].message);
+		Luxe.timer.schedule(1,$bind(this,this.tick));
+		this.gradienterise();
+	}
+	,tick: function() {
+		Luxe.timer.schedule(1,$bind(this,this.tick));
+		if(this.board.randomized == false) return;
+		this.sec++;
+		this.timerText.set_text("" + this.sec + " seconds.");
+	}
+	,gradienterise: function() {
+		var index = Math.floor(Math.random() * this.gradients.length);
+		luxe_tween_Actuate.tween(this.grad.get_colorA(),5,{ r : new phoenix_Color().rgb(this.gradients[index].a).r, g : new phoenix_Color().rgb(this.gradients[index].a).g, b : new phoenix_Color().rgb(this.gradients[index].a).b});
+		luxe_tween_Actuate.tween(this.grad.get_colorB(),5,{ r : new phoenix_Color().rgb(this.gradients[index].b).r, g : new phoenix_Color().rgb(this.gradients[index].b).g, b : new phoenix_Color().rgb(this.gradients[index].b).b});
+		Luxe.timer.schedule(5,$bind(this,this.gradienterise));
 	}
 	,onkeyup: function(e) {
 		if(e.keycode == 27) Luxe.core.shutdown();
+		if(e.keycode == 13) this.board.onLevelEnd();
 	}
 	,update: function(dt) {
 	}
@@ -1498,319 +2151,9 @@ Reflect.deleteField = function(o,field) {
 	delete(o[field]);
 	return true;
 };
-var luxe_Visual = function(_options) {
-	this.ignore_texture_on_geometry_change = false;
-	this._creating_geometry = false;
-	this._has_custom_origin = false;
-	this.radians = 0.0;
-	this.depth = 0.0;
-	this.visible = true;
-	this.locked = false;
-	if(_options == null) throw new js__$Boot_HaxeError(luxe_DebugError.null_assertion("_options was null" + (" ( " + "Visual requires non-null options" + " )")));
-	this._rotation_euler = new phoenix_Vector();
-	this._rotation_quat = new phoenix_Quaternion();
-	luxe_Entity.call(this,_options);
-	this.set_color(new phoenix_Color());
-	this.set_size(new phoenix_Vector());
-	if(this.options.texture != null) this.set_texture(this.options.texture);
-	if(this.options.shader != null) this.set_shader(this.options.shader);
-	if(this.options.color != null) this.set_color(this.options.color);
-	if(this.options.depth != null) this.set_depth(this.options.depth);
-	if(this.options.visible != null) this.set_visible(this.options.visible);
-	if(this.options.size != null) {
-		this.set_size(this.options.size);
-		this._create_geometry();
-	} else if(this.texture != null) {
-		this.set_size(new phoenix_Vector(this.texture.width,this.texture.height));
-		this._create_geometry();
-	} else {
-		this.set_size(new phoenix_Vector(64,64));
-		this._create_geometry();
-	}
-};
-$hxClasses["luxe.Visual"] = luxe_Visual;
-luxe_Visual.__name__ = ["luxe","Visual"];
-luxe_Visual.__super__ = luxe_Entity;
-luxe_Visual.prototype = $extend(luxe_Entity.prototype,{
-	_create_geometry: function() {
-		if(this.options.geometry == null) {
-			if(this.options.no_geometry == null || this.options.no_geometry == false) {
-				this._creating_geometry = true;
-				var _batcher = null;
-				if(this.options.no_batcher_add == null || this.options.no_batcher_add == false) {
-					if(this.options.batcher != null) _batcher = this.options.batcher; else _batcher = Luxe.renderer.batcher;
-				}
-				this.set_geometry(new phoenix_geometry_QuadGeometry({ id : this.get_name() + ".visual", x : 0, y : 0, w : this.size.x, h : this.size.y, scale : new phoenix_Vector(1,1,1), texture : this.texture, color : this.color, shader : this.shader, batcher : _batcher, depth : this.options.depth == null?0:this.options.depth, visible : this.options.visible == null?this.visible:this.options.visible}));
-				this._creating_geometry = false;
-				this.on_geometry_created();
-			}
-		} else this.set_geometry(this.options.geometry);
-		if(this.geometry != null) {
-			this.geometry.id = this.get_name() + ".visual";
-			this.geometry.transform.id = this.get_name() + ".visual.transform";
-		}
-		if(this.options.origin != null) {
-			this._has_custom_origin = true;
-			this.set_origin(this.options.origin);
-		}
-		if(this.options.rotation_z != null) this.set_rotation_z(this.options.rotation_z);
-	}
-	,ondestroy: function() {
-		if(this.geometry != null && this.geometry.added) this.geometry.drop(true);
-		this.set_transform(null);
-		this.options = null;
-		this.set_geometry(null);
-		this.set_texture(null);
-		this.set_shader(null);
-		this.set_color(null);
-		this.set_size(null);
-		this.set_clip_rect(null);
-		this._rotation_euler = null;
-		this._rotation_quat = null;
-	}
-	,on_geometry_created: function() {
-	}
-	,set_visible: function(_v) {
-		this.visible = _v;
-		if(this.geometry != null) this.geometry.set_visible(this.visible);
-		return this.visible;
-	}
-	,set_depth: function(_v) {
-		if(this.geometry != null) this.geometry.set_depth(_v);
-		return this.depth = _v;
-	}
-	,set_color: function(_c) {
-		if(this.color != null && this.geometry != null) this.geometry.set_color(_c);
-		return this.color = _c;
-	}
-	,set_texture: function(_t) {
-		if(this.geometry != null && this.geometry.state.texture != _t) this.geometry.set_texture(_t);
-		return this.texture = _t;
-	}
-	,set_shader: function(_s) {
-		if(this.geometry != null && this.geometry.state.shader != _s) this.geometry.set_shader(_s);
-		return this.shader = _s;
-	}
-	,set_geometry: function(_g) {
-		if(this.geometry == _g) return this.geometry;
-		if(this.geometry != null) this.geometry.drop();
-		this.geometry = _g;
-		if(this.geometry != null) {
-			this.geometry.transform.set_parent(this.get_transform());
-			if(this._creating_geometry == false) {
-				this.geometry.set_color(this.color);
-				this.geometry.set_depth(this.depth);
-				this.geometry.set_visible(this.visible);
-				if(!this.ignore_texture_on_geometry_change) {
-				}
-			}
-		}
-		return this.geometry;
-	}
-	,set_parent_from_transform: function(_parent) {
-		luxe_Entity.prototype.set_parent_from_transform.call(this,_parent);
-		if(this.geometry != null) this.geometry.transform.set_parent(this.get_transform());
-	}
-	,set_rotation_from_transform: function(_rotation) {
-		luxe_Entity.prototype.set_rotation_from_transform.call(this,_rotation);
-		this._rotation_euler.setEulerFromQuaternion(_rotation,null);
-		this._rotation_quat.copy(_rotation);
-	}
-	,set_size: function(_v) {
-		this.size = _v;
-		if(this.size != null) phoenix_Vector.Listen(this.size,$bind(this,this._size_change));
-		return this.size;
-	}
-	,get_rotation_z: function() {
-		return luxe_utils_Maths.degrees(this.get_radians());
-	}
-	,set_rotation_z: function(_degrees) {
-		this.set_radians(_degrees * 0.017453292519943278);
-		return _degrees;
-	}
-	,set_radians: function(_r) {
-		this._rotation_euler.set_z(_r);
-		this._rotation_quat.setFromEuler(this._rotation_euler);
-		this.set_rotation(this._rotation_quat.clone());
-		return this.radians = _r;
-	}
-	,get_radians: function() {
-		return this.radians;
-	}
-	,set_locked: function(_l) {
-		if(this.geometry != null) this.geometry.set_locked(_l);
-		return this.locked = _l;
-	}
-	,set_clip_rect: function(_val) {
-		if(this.geometry != null) this.geometry.set_clip_rect(_val);
-		return this.clip_rect = _val;
-	}
-	,_size_change: function(_v) {
-		this.set_size(this.size);
-	}
-	,init: function() {
-		luxe_Entity.prototype.init.call(this);
-	}
-	,__class__: luxe_Visual
-	,__properties__: $extend(luxe_Entity.prototype.__properties__,{set_rotation_z:"set_rotation_z",get_rotation_z:"get_rotation_z",set_radians:"set_radians",get_radians:"get_radians",set_clip_rect:"set_clip_rect",set_depth:"set_depth",set_visible:"set_visible",set_color:"set_color",set_shader:"set_shader",set_texture:"set_texture",set_locked:"set_locked",set_geometry:"set_geometry",set_size:"set_size"})
-});
-var luxe_Sprite = function(options) {
-	this.flipy = false;
-	this.flipx = false;
-	this.centered = true;
-	this.set_uv(new phoenix_Rectangle());
-	if(options == null) throw new js__$Boot_HaxeError(luxe_DebugError.null_assertion("options was null" + (" ( " + "Sprite requires non-null options" + " )")));
-	if(options.centered != null) this.set_centered(options.centered);
-	if(options.flipx != null) this.set_flipx(options.flipx);
-	if(options.flipy != null) this.set_flipy(options.flipy);
-	luxe_Visual.call(this,options);
-};
-$hxClasses["luxe.Sprite"] = luxe_Sprite;
-luxe_Sprite.__name__ = ["luxe","Sprite"];
-luxe_Sprite.__super__ = luxe_Visual;
-luxe_Sprite.prototype = $extend(luxe_Visual.prototype,{
-	on_geometry_created: function() {
-		luxe_Visual.prototype.on_geometry_created.call(this);
-		if(this.texture != null) {
-			this.set_uv((function($this) {
-				var $r;
-				if($this.options.uv == null) $this.options.uv = new phoenix_Rectangle(0,0,$this.texture.width,$this.texture.height);
-				$r = $this.options.uv;
-				return $r;
-			}(this)));
-			if(this.texture.resource_type == 5) this.set_flipy(true);
-		}
-		this.set_centered(!(!this.centered));
-		this.set_flipx(!(!this.flipx));
-		this.set_flipy(!(!this.flipy));
-	}
-	,set_geometry: function(_g) {
-		this.geometry_quad = _g;
-		return luxe_Visual.prototype.set_geometry.call(this,_g);
-	}
-	,ondestroy: function() {
-		this.set_uv(null);
-		this.geometry_quad = null;
-		luxe_Visual.prototype.ondestroy.call(this);
-	}
-	,point_inside: function(_p) {
-		if(this.geometry == null) return false;
-		return Luxe.utils.geometry.point_in_geometry(_p,this.geometry);
-	}
-	,point_inside_AABB: function(_p) {
-		if(this.get_pos() == null) return false;
-		if(this.size == null) return false;
-		var _s_x = this.size.x * this.get_scale().x;
-		var _s_y = this.size.y * this.get_scale().y;
-		if(this.centered) {
-			var _hx = _s_x / 2;
-			var _hy = _s_y / 2;
-			if(_p.x < this.get_pos().x - _hx) return false;
-			if(_p.y < this.get_pos().y - _hy) return false;
-			if(_p.x > this.get_pos().x + _s_x - _hx) return false;
-			if(_p.y > this.get_pos().y + _s_y - _hy) return false;
-		} else {
-			if(_p.x < this.get_pos().x) return false;
-			if(_p.y < this.get_pos().y) return false;
-			if(_p.x > this.get_pos().x + _s_x) return false;
-			if(_p.y > this.get_pos().y + _s_y) return false;
-		}
-		return true;
-	}
-	,set_uv: function(_uv) {
-		if(_uv == null) return this.uv = _uv;
-		if(this.geometry_quad != null) this.geometry_quad.uv(_uv);
-		this.uv = _uv;
-		phoenix_Rectangle.listen(this.uv,$bind(this,this._uv_change));
-		return this.uv;
-	}
-	,set_flipy: function(_v) {
-		if(_v == this.flipy) return this.flipy;
-		if(this.geometry_quad != null) this.geometry_quad.set_flipy(_v);
-		return this.flipy = _v;
-	}
-	,set_flipx: function(_v) {
-		if(_v == this.flipx) return this.flipx;
-		if(this.geometry_quad != null) this.geometry_quad.set_flipx(_v);
-		return this.flipx = _v;
-	}
-	,set_size: function(_v) {
-		if(this.geometry_quad != null) {
-			this.geometry_quad.resize(new phoenix_Vector(_v.x,_v.y));
-			if(!this._has_custom_origin) {
-				if(this.centered) this.set_origin(new phoenix_Vector(_v.x,_v.y,_v.z,_v.w).divideScalar(2));
-			}
-		}
-		return luxe_Visual.prototype.set_size.call(this,_v);
-	}
-	,set_centered: function(_c) {
-		if(this.size != null) {
-			if(_c) this.set_origin(new phoenix_Vector(this.size.x / 2,this.size.y / 2)); else this.set_origin(new phoenix_Vector());
-		}
-		return this.centered = _c;
-	}
-	,_uv_change: function(_v) {
-		this.set_uv(this.uv);
-	}
-	,init: function() {
-		luxe_Visual.prototype.init.call(this);
-	}
-	,__class__: luxe_Sprite
-	,__properties__: $extend(luxe_Visual.prototype.__properties__,{set_uv:"set_uv",set_flipy:"set_flipy",set_flipx:"set_flipx",set_centered:"set_centered"})
-});
-var Tile = function(x,y,sprite,_board) {
-	this.goodpos = true;
-	this.newy = -100;
-	this.newx = -100;
-	this.y = -100;
-	this.x = -100;
-	this.sym = "!";
-	var image = Luxe.resources.cache.get("assets/" + sprite + ".png");
-	this.board = _board;
-	this.x = x;
-	this.y = y;
-	var width = 70;
-	var height = 70;
-	var padding = 10;
-	image.set_filter_min(image.set_filter_mag(9728));
-	luxe_Sprite.call(this,{ pos : new phoenix_Vector(this.board.get_pos().x + x * (width + padding),this.board.get_pos().y + y * (height + padding)), size : new phoenix_Vector(width,height), origin : new phoenix_Vector(-padding / 2,-padding / 2), texture : image});
-};
-$hxClasses["Tile"] = Tile;
-Tile.__name__ = ["Tile"];
-Tile.__super__ = luxe_Sprite;
-Tile.prototype = $extend(luxe_Sprite.prototype,{
-	setPos: function(_x,_y,wrap) {
-		if(wrap == null) wrap = true;
-		if(wrap) _x %= this.board.tilesWide;
-		if(wrap) _y %= this.board.tilesHigh;
-		if(_x < 0) _x = this.board.tilesWide + _x;
-		if(_y < 0) _y = this.board.tilesHigh + _y;
-		this.newx = _x;
-		this.newy = _y;
-		haxe_Log.trace("Was at " + this.x + " : " + this.y + " will be moving to " + this.newx + " : " + this.newy + " when showPos() is called.",{ fileName : "Tile.hx", lineNumber : 46, className : "Tile", methodName : "setPos"});
-		this.goodpos = false;
-	}
-	,showPos: function() {
-		this.goodpos = true;
-		this.x = this.newx;
-		this.y = this.newy;
-		haxe_Log.trace("Now at " + this.x + " : " + this.y,{ fileName : "Tile.hx", lineNumber : 56, className : "Tile", methodName : "showPos"});
-		var width = 70;
-		var height = 70;
-		var padding = 10;
-		luxe_tween_Actuate.tween(this.get_pos(),0.3,{ x : this.board.get_pos().x + this.x * (width + padding), y : this.board.get_pos().y + this.y * (height + padding)});
-	}
-	,init: function() {
-		luxe_Sprite.prototype.init.call(this);
-	}
-	,ondestroy: function() {
-		luxe_Sprite.prototype.ondestroy.call(this);
-	}
-	,__class__: Tile
-});
 var SquareTile = function(x,y,b) {
 	Tile.call(this,x,y,"Square",b);
-	this.sym = "s";
+	this.sym = "S";
 };
 $hxClasses["SquareTile"] = SquareTile;
 SquareTile.__name__ = ["SquareTile"];
@@ -1891,7 +2234,7 @@ StringTools.fastCodeAt = function(s,index) {
 };
 var TriangleTile = function(x,y,b) {
 	Tile.call(this,x,y,"Triangle",b);
-	this.sym = "t";
+	this.sym = "T";
 };
 $hxClasses["TriangleTile"] = TriangleTile;
 TriangleTile.__name__ = ["TriangleTile"];
@@ -4022,166 +4365,6 @@ luxe_Camera.prototype = $extend(luxe_Entity.prototype,{
 	}
 	,__class__: luxe_Camera
 	,__properties__: $extend(luxe_Entity.prototype.__properties__,{set_size_mode:"set_size_mode",get_size_mode:"get_size_mode",set_size:"set_size",get_size:"get_size",set_minimum_zoom:"set_minimum_zoom",get_minimum_zoom:"get_minimum_zoom",set_zoom:"set_zoom",get_zoom:"get_zoom",set_center:"set_center",get_center:"get_center",set_viewport:"set_viewport",get_viewport:"get_viewport"})
-});
-var luxe_ID = function(_name,_id) {
-	if(_id == null) _id = "";
-	if(_name == null) _name = "";
-	this.name = "";
-	this.name = _name;
-	if(_id == "") this.id = Luxe.utils.uniqueid(); else this.id = _id;
-};
-$hxClasses["luxe.ID"] = luxe_ID;
-luxe_ID.__name__ = ["luxe","ID"];
-luxe_ID.prototype = {
-	__class__: luxe_ID
-};
-var luxe_Component = function(_options) {
-	var _name = "";
-	if(_options != null) {
-		if(_options.name != null) _name = _options.name;
-	}
-	luxe_ID.call(this,_name == ""?Luxe.utils.uniqueid():_name);
-};
-$hxClasses["luxe.Component"] = luxe_Component;
-luxe_Component.__name__ = ["luxe","Component"];
-luxe_Component.__super__ = luxe_ID;
-luxe_Component.prototype = $extend(luxe_ID.prototype,{
-	init: function() {
-	}
-	,update: function(dt) {
-	}
-	,onadded: function() {
-	}
-	,onremoved: function() {
-	}
-	,onfixedupdate: function(rate) {
-	}
-	,onreset: function() {
-	}
-	,ondestroy: function() {
-	}
-	,onkeyup: function(event) {
-	}
-	,onkeydown: function(event) {
-	}
-	,ontextinput: function(event) {
-	}
-	,oninputdown: function(event) {
-	}
-	,oninputup: function(event) {
-	}
-	,onmousedown: function(event) {
-	}
-	,onmouseup: function(event) {
-	}
-	,onmousemove: function(event) {
-	}
-	,onmousewheel: function(event) {
-	}
-	,ontouchdown: function(event) {
-	}
-	,ontouchup: function(event) {
-	}
-	,ontouchmove: function(event) {
-	}
-	,ongamepadup: function(event) {
-	}
-	,ongamepaddown: function(event) {
-	}
-	,ongamepadaxis: function(event) {
-	}
-	,ongamepaddevice: function(event) {
-	}
-	,onwindowmoved: function(event) {
-	}
-	,onwindowresized: function(event) {
-	}
-	,onwindowsized: function(event) {
-	}
-	,onwindowminimized: function(event) {
-	}
-	,onwindowrestored: function(event) {
-	}
-	,add: function(component) {
-		return this.get_entity().add(component);
-	}
-	,remove: function(_name) {
-		return this.get_entity().remove(_name);
-	}
-	,get: function(_name,in_children) {
-		if(in_children == null) in_children = false;
-		return this.get_entity().get(_name,in_children);
-	}
-	,get_any: function(_name,in_children,first_only) {
-		if(first_only == null) first_only = true;
-		if(in_children == null) in_children = false;
-		return this.get_entity().get_any(_name,in_children,first_only);
-	}
-	,has: function(_name) {
-		return this.get_entity().has(_name);
-	}
-	,_detach_entity: function() {
-		if(this.get_entity() != null) {
-		}
-	}
-	,_attach_entity: function() {
-		if(this.get_entity() != null) {
-		}
-	}
-	,set_entity: function(_entity) {
-		this._detach_entity();
-		this.entity = _entity;
-		this._attach_entity();
-		return this.get_entity();
-	}
-	,get_entity: function() {
-		return this.entity;
-	}
-	,set_pos: function(_p) {
-		return this.get_entity().get_transform().set_pos(_p);
-	}
-	,get_pos: function() {
-		return this.get_entity().get_transform().get_pos();
-	}
-	,set_rotation: function(_r) {
-		return this.get_entity().get_transform().set_rotation(_r);
-	}
-	,get_rotation: function() {
-		return this.get_entity().get_transform().get_rotation();
-	}
-	,set_scale: function(_s) {
-		return this.get_entity().get_transform().set_scale(_s);
-	}
-	,get_scale: function() {
-		return this.get_entity().get_transform().get_scale();
-	}
-	,set_origin: function(_o) {
-		return this.get_entity().get_transform().set_origin(_o);
-	}
-	,get_origin: function() {
-		return this.get_entity().get_transform().get_origin();
-	}
-	,set_transform: function(_o) {
-		return this.get_entity().set_transform(_o);
-	}
-	,get_transform: function() {
-		return this.get_entity().get_transform();
-	}
-	,entity_pos_change: function(_pos) {
-	}
-	,entity_scale_change: function(_scale) {
-	}
-	,entity_rotation_change: function(_rotation) {
-	}
-	,entity_origin_change: function(_origin) {
-	}
-	,entity_parent_change: function(_parent) {
-	}
-	,toString: function() {
-		return "luxe Component: " + this.name + " on " + this.get_entity().get_name() + " / id: " + this.id;
-	}
-	,__class__: luxe_Component
-	,__properties__: {set_origin:"set_origin",get_origin:"get_origin",set_scale:"set_scale",get_scale:"get_scale",set_rotation:"set_rotation",get_rotation:"get_rotation",set_pos:"set_pos",get_pos:"get_pos",set_entity:"set_entity",get_entity:"get_entity"}
 });
 var snow_App = function() {
 	this.next_tick = 0;
@@ -24221,7 +24404,7 @@ var ArrayBuffer = (Function("return typeof ArrayBuffer != 'undefined' ? ArrayBuf
 if(ArrayBuffer.prototype.slice == null) ArrayBuffer.prototype.slice = js_html_compat_ArrayBuffer.sliceImpl;
 var DataView = (Function("return typeof DataView != 'undefined' ? DataView : null"))() || js_html_compat_DataView;
 var Uint8Array = (Function("return typeof Uint8Array != 'undefined' ? Uint8Array : null"))() || js_html_compat_Uint8Array._new;
-Levels.levels = [{ message : "Hi! Shift the columns and rows on the left grid, to make it appear like the second.", tiles : ["S","T","T","S"]},{ message : "That was easy, but it'll get more difficult!", tiles : ["S","T","S","T","T","T","S","T","S"]},{ message : "Good, you're getting the hang of it.", tiles : ["C","S","S","C","S","T","T","S","S","T","T","S","C","S","S","C"]}];
+Levels.levels = [{ message : "Hi! Slide the columns and rows on the left grid,\nto make it look like the right grid.", tiles : ["S","T","T","S"]},{ message : "That was easy, but it'll get more difficult!", tiles : ["S","T","S","T","T","T","S","T","S"]},{ message : "Let's throw some circles in!", tiles : ["C","S","S","C","S","T","T","S","S","T","T","S","C","S","S","C"]},{ message : "Good job! Try this.", tiles : ["C","S","T","C","C","T","S","C","C","S","T","C","C","T","S","C"]},{ message : "Nice work, how about 5 by 5?", tiles : ["T","T","T","T","T","T","C","T","C","T","T","T","C","C","T","T","S","T","S","T","T","S","S","S","T"]},{ message : "Final one - The crazy 6 by 6. It's possible!", tiles : ["T","T","T","T","T","T","T","C","S","S","C","T","T","S","C","C","S","T","T","S","C","C","S","T","T","C","S","S","C","T","T","T","T","T","T","T"]}];
 haxe_Serializer.USE_CACHE = false;
 haxe_Serializer.USE_ENUM_INDEX = false;
 haxe_Serializer.BASE64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789%:";

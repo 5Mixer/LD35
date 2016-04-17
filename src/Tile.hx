@@ -19,8 +19,8 @@ class Tile extends luxe.Sprite {
 		this.x = x;
 		this.y = y;
 
-		var width = 70;
-		var height = 70;
+		var width = 60;
+		var height = 60;
 		var padding = 10;
 
 		//keep pixels crisp when scaling them, for pixel art
@@ -43,7 +43,6 @@ class Tile extends luxe.Sprite {
 		this.newx = _x;
 		this.newy = _y;
 
-		trace("Was at "+this.x+" : "+this.y+" will be moving to "+this.newx+" : "+this.newy+" when showPos() is called.");
 
 		goodpos = false;
 
@@ -53,14 +52,13 @@ class Tile extends luxe.Sprite {
 
 		this.x = newx;
 		this.y = newy;
-		trace("Now at "+this.x+" : "+this.y);
 
-		var width = 70;
-		var height = 70;
+		var width = 60;
+		var height = 60;
 		var padding = 10;
 
 
-		luxe.tween.Actuate.tween( pos, 0.3, { x:board.pos.x + x*(width+padding), y: board.pos.y + y*(height+padding)} );
+		luxe.tween.Actuate.tween( pos, 0.25, { x:board.pos.x + x*(width+padding), y: board.pos.y + y*(height+padding)} );
 		//pos = new luxe.Vector(50 + this.x*(width+padding),50 + this.y*(height+padding));
 	}
 
