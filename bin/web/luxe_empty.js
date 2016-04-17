@@ -928,8 +928,12 @@ luxe_Entity.prototype = $extend(luxe_Objects.prototype,{
 	,__properties__: $extend(luxe_Objects.prototype.__properties__,{set_scene_root:"set_scene_root",set_origin:"set_origin",get_origin:"get_origin",set_scale:"set_scale",get_scale:"get_scale",set_rotation:"set_rotation",get_rotation:"get_rotation",set_pos:"set_pos",get_pos:"get_pos",set_transform:"set_transform",get_transform:"get_transform",set_active:"set_active",get_active:"get_active",set_scene:"set_scene",get_scene:"get_scene",set_parent:"set_parent",get_parent:"get_parent",set_fixed_rate:"set_fixed_rate",get_fixed_rate:"get_fixed_rate",get_components:"get_components"})
 });
 var Board = function() {
+	this.padding = 10;
+	this.height = 70;
+	this.width = 70;
 	this.tilesHigh = 5;
 	this.tilesWide = 5;
+	luxe_Entity.call(this,{ name : "Board", pos : new phoenix_Vector(Luxe.core.screen.get_mid().x - 2.5 * (this.width + this.padding),Luxe.core.screen.get_mid().y - 2.5 * (this.width + this.padding))});
 	this.tiles = [];
 	var _g1 = 0;
 	var _g = this.tilesWide;
@@ -940,31 +944,32 @@ var Board = function() {
 		while(_g3 < _g2) {
 			var y = _g3++;
 			var tile = null;
-			if(Math.random() > .5) tile = new TriangleTile(x,y); else tile = new SquareTile(x,y);
+			if(Math.random() > .5) tile = new TriangleTile(x,y,this); else tile = new SquareTile(x,y,this);
 			this.tiles[y * this.tilesWide + x] = tile;
 		}
 	}
+	var bg = new luxe_Sprite({ texture : Luxe.resources.cache.get("assets/Board.png"), pos : Luxe.core.screen.get_mid(), size : new phoenix_Vector(420 + this.padding * 2,420 + this.padding * 2), depth : -1});
 	this.debugTiles(this.tiles);
 	var swipe = new org_gesluxe_gestures_SwipeGesture();
 	swipe.events.listen("gesture.recognized",$bind(this,this.onGesture));
-	luxe_Entity.call(this,{ name : "Board"});
 };
 $hxClasses["Board"] = Board;
 Board.__name__ = ["Board"];
 Board.__super__ = luxe_Entity;
 Board.prototype = $extend(luxe_Entity.prototype,{
 	onGesture: function(event) {
-		var col = Math.round((event.gesture.get_location().x - 50) / 60);
-		var row = Math.round((event.gesture.get_location().y - 50) / 60);
+		var col = Math.floor((event.gesture.get_location().x - this.get_pos().x) / 80);
+		var row = Math.floor((event.gesture.get_location().y - this.get_pos().y) / 80);
 		var x;
 		if((js_Boot.__cast(event.gesture , org_gesluxe_gestures_SwipeGesture)).get_offsetX() > 0) x = true; else x = false;
 		var y;
 		if((js_Boot.__cast(event.gesture , org_gesluxe_gestures_SwipeGesture)).get_offsetY() > 0) y = true; else y = false;
+		if(this.getTile(col,row,false,true) == null) return;
 		if((js_Boot.__cast(event.gesture , org_gesluxe_gestures_SwipeGesture)).get_offsetX() == 0) {
-			haxe_Log.trace("Swipe up/down! Column: " + (col + 1) + ", down:" + (y == null?"null":"" + y),{ fileName : "Board.hx", lineNumber : 50, className : "Board", methodName : "onGesture"});
+			haxe_Log.trace("Swipe up/down! Column: " + (col + 1) + ", down:" + (y == null?"null":"" + y),{ fileName : "Board.hx", lineNumber : 69, className : "Board", methodName : "onGesture"});
 			this.shiftColumn(col,y);
 		} else if((js_Boot.__cast(event.gesture , org_gesluxe_gestures_SwipeGesture)).get_offsetY() == 0) {
-			haxe_Log.trace("Swipe L/R! Row: " + (row + 1) + ", right:" + (x == null?"null":"" + x),{ fileName : "Board.hx", lineNumber : 53, className : "Board", methodName : "onGesture"});
+			haxe_Log.trace("Swipe L/R! Row: " + (row + 1) + ", right:" + (x == null?"null":"" + x),{ fileName : "Board.hx", lineNumber : 72, className : "Board", methodName : "onGesture"});
 			this.shiftRow(row,x);
 		}
 	}
@@ -975,13 +980,13 @@ Board.prototype = $extend(luxe_Entity.prototype,{
 		var _g = this.tilesWide;
 		while(_g1 < _g) {
 			var x = _g1++;
-			this.getTile(x,row,true,true).setPos(x + offset,row,true);
+			this.getTile(x,row,false,true).setPos(x + offset,row,true);
 		}
 		var _g11 = 0;
 		var _g2 = this.tilesWide;
 		while(_g11 < _g2) {
 			var x1 = _g11++;
-			this.getTile(x1,row,true,false).showPos();
+			this.getTile(x1,row,false,false).showPos();
 		}
 	}
 	,shiftColumn: function(col,down) {
@@ -991,25 +996,24 @@ Board.prototype = $extend(luxe_Entity.prototype,{
 		var _g = this.tilesHigh;
 		while(_g1 < _g) {
 			var y = _g1++;
-			this.getTile(col,y,true,true).setPos(col,y + offset,true);
+			this.getTile(col,y,false,true).setPos(col,y + offset,true);
 		}
 		var _g11 = 0;
 		var _g2 = this.tilesHigh;
 		while(_g11 < _g2) {
 			var y1 = _g11++;
-			this.getTile(col,y1,true,false).showPos();
+			this.getTile(col,y1,false,false).showPos();
 		}
-		this.debugTiles(this.tiles);
 	}
 	,debugTiles: function(tiles) {
 	}
 	,getTile: function(x,y,wrap,withAGoodPos) {
 		if(withAGoodPos == null) withAGoodPos = true;
-		if(wrap == null) wrap = true;
+		if(wrap == null) wrap = false;
 		if(wrap) x %= this.tilesWide;
 		if(wrap) y %= this.tilesHigh;
-		if(x < 0) x = this.tilesWide;
-		if(y < 0) y = this.tilesHigh;
+		if(x < 0 && wrap) x = this.tilesWide + x;
+		if(y < 0 && wrap) y = this.tilesHigh + y;
 		var _g = 0;
 		var _g1 = this.tiles;
 		while(_g < _g1.length) {
@@ -1017,7 +1021,7 @@ Board.prototype = $extend(luxe_Entity.prototype,{
 			++_g;
 			if(t.x == x && t.y == y && t.goodpos == withAGoodPos) return t;
 		}
-		throw new js__$Boot_HaxeError("No tile was found for " + x + " : " + y);
+		haxe_Log.trace("No tile was found for " + x + " : " + y,{ fileName : "Board.hx", lineNumber : 126, className : "Board", methodName : "getTile"});
 		return null;
 	}
 	,init: function() {
@@ -1381,7 +1385,7 @@ Main.prototype = $extend(luxe_Game.prototype,{
 	}
 	,ready: function() {
 		org_gesluxe_Gesluxe.init();
-		var parcel = new luxe_Parcel({ textures : [{ id : "assets/Triangle.png"},{ id : "assets/Square.png"}], sounds : [{ id : "assets/ShapeShiftTheme.wav", is_stream : false}]});
+		var parcel = new luxe_Parcel({ textures : [{ id : "assets/Triangle.png"},{ id : "assets/Wood.jpg"},{ id : "assets/Board.png"},{ id : "assets/Square.png"}], fonts : [{ id : "assets/fonts/Arvo.fnt"},{ id : "assets/fonts/PaytoneOne.fnt"}], sounds : [{ id : "assets/ShapeShiftTheme.wav", is_stream : false}]});
 		new luxe_ParcelProgress({ parcel : parcel, background : new phoenix_Color(0.5,0.89,0.31,0.75), oncomplete : $bind(this,this.assets_loaded)});
 		parcel.load();
 	}
@@ -1389,6 +1393,9 @@ Main.prototype = $extend(luxe_Game.prototype,{
 		this.music = Luxe.resources.cache.get("assets/ShapeShiftTheme.wav");
 		this.musicHandle = Luxe.audio.loop(this.music.source);
 		new Board();
+		var text_size = Math.min(Math.round(Luxe.core.screen.get_h() / 12),48);
+		this.text = new luxe_Text({ pos : new phoenix_Vector(Luxe.core.screen.get_mid().x,100), point_size : text_size, depth : 3, align : 2, font : Luxe.resources.cache.get("assets/fonts/PaytoneOne.fnt"), text : "Shiftrift", color : new phoenix_Color(0.41,0.69,0.27)});
+		var bg = new luxe_Sprite({ size : Luxe.core.screen.get_size(), origin : new phoenix_Vector(0,0), depth : -50, color : new phoenix_Color(0.34,0.29,0.32)});
 	}
 	,onkeyup: function(e) {
 		if(e.keycode == 27) Luxe.core.shutdown();
@@ -1701,7 +1708,7 @@ luxe_Sprite.prototype = $extend(luxe_Visual.prototype,{
 	,__class__: luxe_Sprite
 	,__properties__: $extend(luxe_Visual.prototype.__properties__,{set_uv:"set_uv",set_flipy:"set_flipy",set_flipx:"set_flipx",set_centered:"set_centered"})
 });
-var Tile = function(x,y,sprite) {
+var Tile = function(x,y,sprite,_board) {
 	this.goodpos = true;
 	this.newy = -100;
 	this.newx = -100;
@@ -1709,13 +1716,14 @@ var Tile = function(x,y,sprite) {
 	this.x = -100;
 	this.sym = "!";
 	var image = Luxe.resources.cache.get("assets/" + sprite + ".png");
+	this.board = _board;
 	this.x = x;
 	this.y = y;
-	var width = 40;
-	var height = 40;
-	var padding = 20;
+	var width = 70;
+	var height = 70;
+	var padding = 10;
 	image.set_filter_min(image.set_filter_mag(9728));
-	luxe_Sprite.call(this,{ pos : new phoenix_Vector(50 + x * (width + padding),50 + y * (height + padding)), size : new phoenix_Vector(width,height), texture : image});
+	luxe_Sprite.call(this,{ pos : new phoenix_Vector(this.board.get_pos().x + x * (width + padding),this.board.get_pos().y + y * (height + padding)), size : new phoenix_Vector(width,height), origin : new phoenix_Vector(-padding / 2,-padding / 2), texture : image});
 };
 $hxClasses["Tile"] = Tile;
 Tile.__name__ = ["Tile"];
@@ -1723,25 +1731,24 @@ Tile.__super__ = luxe_Sprite;
 Tile.prototype = $extend(luxe_Sprite.prototype,{
 	setPos: function(_x,_y,wrap) {
 		if(wrap == null) wrap = true;
-		if(wrap) _x %= 5;
-		if(wrap) _y %= 5;
-		if(_x < 0) _x = 4;
-		if(_y < 0) _y = 4;
+		if(wrap) _x %= this.board.tilesWide;
+		if(wrap) _y %= this.board.tilesHigh;
+		if(_x < 0) _x = this.board.tilesWide + _x;
+		if(_y < 0) _y = this.board.tilesHigh + _y;
 		this.newx = _x;
 		this.newy = _y;
-		if(this.goodpos == false) throw new js__$Boot_HaxeError("HOLD ON. SETTING A TILE TO BE SOMEWHERE NEW, BUT IT WAS TOLD TO GO ELSE WHERE!");
-		haxe_Log.trace("Was at " + this.x + " : " + this.y + " will be moving to " + this.newx + " : " + this.newy,{ fileName : "Tile.hx", lineNumber : 45, className : "Tile", methodName : "setPos"});
+		haxe_Log.trace("Was at " + this.x + " : " + this.y + " will be moving to " + this.newx + " : " + this.newy + " when showPos() is called.",{ fileName : "Tile.hx", lineNumber : 46, className : "Tile", methodName : "setPos"});
 		this.goodpos = false;
 	}
 	,showPos: function() {
 		this.goodpos = true;
 		this.x = this.newx;
 		this.y = this.newy;
-		haxe_Log.trace("Now at " + this.x + " : " + this.y,{ fileName : "Tile.hx", lineNumber : 55, className : "Tile", methodName : "showPos"});
-		var width = 40;
-		var height = 40;
-		var padding = 20;
-		this.set_pos(new phoenix_Vector(50 + this.x * (width + padding),50 + this.y * (height + padding)));
+		haxe_Log.trace("Now at " + this.x + " : " + this.y,{ fileName : "Tile.hx", lineNumber : 56, className : "Tile", methodName : "showPos"});
+		var width = 70;
+		var height = 70;
+		var padding = 10;
+		luxe_tween_Actuate.tween(this.get_pos(),0.3,{ x : this.board.get_pos().x + this.x * (width + padding), y : this.board.get_pos().y + this.y * (height + padding)});
 	}
 	,init: function() {
 		luxe_Sprite.prototype.init.call(this);
@@ -1751,8 +1758,8 @@ Tile.prototype = $extend(luxe_Sprite.prototype,{
 	}
 	,__class__: Tile
 });
-var SquareTile = function(x,y) {
-	Tile.call(this,x,y,"Square");
+var SquareTile = function(x,y,b) {
+	Tile.call(this,x,y,"Square",b);
 	this.sym = "s";
 };
 $hxClasses["SquareTile"] = SquareTile;
@@ -1832,8 +1839,8 @@ StringTools.replace = function(s,sub,by) {
 StringTools.fastCodeAt = function(s,index) {
 	return s.charCodeAt(index);
 };
-var TriangleTile = function(x,y) {
-	Tile.call(this,x,y,"Triangle");
+var TriangleTile = function(x,y,b) {
+	Tile.call(this,x,y,"Triangle",b);
 	this.sym = "t";
 };
 $hxClasses["TriangleTile"] = TriangleTile;
